@@ -49,3 +49,7 @@ sitemap-*.xml
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# large files
+/flyway-11.13.2/
+/public/media/

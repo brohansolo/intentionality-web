@@ -1,10 +1,15 @@
 import { env } from "@/env.mjs";
 
 export const siteConfig = {
-  title: "Next.js Starter",
+  title: "Task Manager",
   description:
-    "A Next.js starter template, packed with features like TypeScript, Tailwind CSS, Next-auth, Eslint, testing tools and more. Jumpstart your project with efficiency and style.",
-  keywords: ["Next.js", "TypeScript", "Tailwind CSS", "Next-auth"],
-  url: env.APP_URL,
+    "A simple task and project management app built with Next.js, TypeScript, and Tailwind CSS.",
+  keywords: [
+    "Task Management",
+    "Project Management",
+    "Productivity",
+    "Next.js",
+  ],
+  url: env.APP_URL || "http://localhost:3000",
   googleSiteVerificationId: env.GOOGLE_SITE_VERIFICATION_ID || "",
 };

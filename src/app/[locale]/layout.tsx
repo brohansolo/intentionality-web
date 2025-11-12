@@ -11,6 +11,7 @@ import { routing } from "@/i18n/routing";
 import { fonts } from "@/lib/fonts";
 import { siteConfig } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
+import { ReduxProvider } from "@/store/ReduxProvider";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -61,13 +62,15 @@ const RootLayout = async ({
   return (
     <html lang={locale} suppressHydrationWarning>
       <body className={cn("min-h-screen font-sans", fonts)}>
-        <NextIntlClientProvider>
-          <ThemeProvider attribute="class">
-            {children}
-            <LangSwitcher className="absolute right-5 bottom-16 z-10" />
-            <ThemeSwitcher className="absolute right-5 bottom-5 z-10" />
-          </ThemeProvider>
-        </NextIntlClientProvider>
+        <ReduxProvider>
+          <NextIntlClientProvider>
+            <ThemeProvider attribute="class">
+              {children}
+              {/* <LangSwitcher className="absolute right-5 bottom-16 z-10" /> */}
+              <ThemeSwitcher className="absolute right-5 bottom-5 z-10" />
+            </ThemeProvider>
+          </NextIntlClientProvider>
+        </ReduxProvider>
       </body>
     </html>
   );

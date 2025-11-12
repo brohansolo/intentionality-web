@@ -1,69 +1,189 @@
-import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+"use client";
 
-import { AuthControls } from "@/components/auth-controls";
-import { Icons } from "@/components/icons";
-import { StripeButton } from "@/components/stripe-button";
-import { buttonVariants } from "@/components/ui/button";
-import { auth } from "@/lib/auth";
+import { useEffect, useState } from "react";
 
-const HomePage = async () => {
-  const session = await auth();
-  const t = await getTranslations("home");
+import { AddTaskModal } from "@/components/add-task-modal";
+import { AllTasksView } from "@/components/all-tasks-view";
+import { ArchivedView } from "@/components/archived-view";
+import { DailyTasksView } from "@/components/daily-tasks-view";
+import { FocusMode } from "@/components/focus-mode";
+import { InboxView } from "@/components/inbox-view";
+import { NextStepsView } from "@/components/next-steps-view";
+import { ProjectView } from "@/components/project-view";
+import { ScratchpadModal } from "@/components/scratchpad-modal";
+import { Sidebar } from "@/components/sidebar";
+import { TaskDetailSidebar } from "@/components/task-detail-sidebar";
+import { TodayView } from "@/components/today-view";
+import { useTasks } from "@/hooks/use-tasks";
+import { Task } from "@/lib/types";
+
+const HomePage = () => {
+  const [currentView, setCurrentView] = useState<string>("today");
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [focusTask, setFocusTask] = useState<Task | null>(null);
+  const [scratchpadOpen, setScratchpadOpen] = useState(false);
+  const [addTaskModalOpen, setAddTaskModalOpen] = useState(false);
+  const { tasks, updateTask, projects } = useTasks();
+
+  // Keep selectedTask in sync with the latest task data
+  useEffect(() => {
+    if (selectedTask) {
+      const updatedTask = tasks.find((t) => t.id === selectedTask.id);
+      if (updatedTask) {
+        setSelectedTask(updatedTask);
+      }
+    }
+  }, [tasks, selectedTask?.id]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInInput =
+        target.tagName === "INPUT" || target.tagName === "TEXTAREA";
+
+      // 's' key for scratchpad
+      if (e.key === "s" && !e.metaKey && !e.ctrlKey && !isInInput) {
+        e.preventDefault();
+        setScratchpadOpen(true);
+      }
+
+      // 'a' key for add task modal - works globally with Ctrl/Cmd modifier, or when not in input
+      if ((e.key === "a" || e.key === "A") && !focusTask) {
+        if (e.ctrlKey || e.metaKey || !isInInput) {
+          e.preventDefault();
+          setAddTaskModalOpen(true);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [focusTask]);
+
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+  };
+
+  const handleTaskDoubleClick = (task: Task) => {
+    setSelectedTask(null);
+    setFocusTask(task);
+  };
+
+  const handleCloseTaskDetail = () => {
+    setSelectedTask(null);
+  };
+
+  const handleCloseFocusMode = () => {
+    setFocusTask(null);
+  };
+
+  // Determine default project based on current view
+  const getDefaultProjectId = () => {
+    // If viewing a specific project, return that project ID
+    if (
+      currentView !== "today" &&
+      currentView !== "all-tasks" &&
+      currentView !== "inbox" &&
+      currentView !== "next-steps" &&
+      currentView !== "daily-tasks" &&
+      currentView !== "archived"
+    ) {
+      return currentView;
+    }
+    return undefined;
+  };
+
+  // Determine if we're creating a daily task
+  const getIsDaily = () => {
+    return currentView === "daily-tasks";
+  };
+
+  const renderView = () => {
+    if (currentView === "today") {
+      return (
+        <TodayView
+          onTaskClick={handleTaskClick}
+          onTaskDoubleClick={handleTaskDoubleClick}
+        />
+      );
+    }
+    if (currentView === "all-tasks") {
+      return (
+        <AllTasksView
+          onTaskClick={handleTaskClick}
+          onTaskDoubleClick={handleTaskDoubleClick}
+        />
+      );
+    }
+    if (currentView === "inbox") {
+      return (
+        <InboxView
+          onTaskClick={handleTaskClick}
+          onTaskDoubleClick={handleTaskDoubleClick}
+        />
+      );
+    }
+    if (currentView === "next-steps") {
+      return (
+        <NextStepsView
+          onTaskClick={handleTaskClick}
+          onTaskDoubleClick={handleTaskDoubleClick}
+        />
+      );
+    }
+    if (currentView === "daily-tasks") {
+      return (
+        <DailyTasksView
+          onTaskClick={handleTaskClick}
+          onTaskDoubleClick={handleTaskDoubleClick}
+        />
+      );
+    }
+    if (currentView === "archived") {
+      return (
+        <ArchivedView
+          onTaskClick={handleTaskClick}
+          onTaskDoubleClick={handleTaskDoubleClick}
+        />
+      );
+    }
+    return (
+      <ProjectView
+        projectId={currentView}
+        onTaskClick={handleTaskClick}
+        onTaskDoubleClick={handleTaskDoubleClick}
+        onViewChange={setCurrentView}
+      />
+    );
+  };
 
   return (
-    <>
-      <header className="w-full border-b">
-        <div className="container flex h-16 items-center justify-between">
-          <Link href="#" className="font-mono text-lg font-bold">
-            next-starter
-          </Link>
-          <div className="flex items-center gap-2">
-            <AuthControls session={session} />
-          </div>
-        </div>
-      </header>
-      <section className="container mt-10 flex flex-col items-center gap-3 text-center md:absolute md:top-1/2 md:left-1/2 md:mt-0 md:-translate-x-1/2 md:-translate-y-1/2">
-        <h1 className="mb-1 font-mono text-4xl leading-tight font-extrabold tracking-tighter [word-spacing:-0.5rem] md:text-5xl">
-          <span className="bg-gradient-to-r from-rose-700 to-pink-600 bg-clip-text text-transparent">
-            Next.js
-          </span>{" "}
-          starter template
-        </h1>
-        <p className="text-muted-foreground max-w-2xl md:text-lg">
-          {t("subtitle")}
-        </p>
-        <div className="mt-2 flex gap-4">
-          {session ? (
-            <StripeButton />
-          ) : (
-            <Link
-              href="https://github.com/Skolaczk/next-starter/blob/main/README.md#getting-started"
-              target="_blank"
-              className={buttonVariants({ size: "lg" })}
-            >
-              {t("getStartedButton")}
-            </Link>
-          )}
-          <Link
-            href="https://github.com/Skolaczk/next-starter"
-            target="_blank"
-            className={buttonVariants({ variant: "outline", size: "lg" })}
-          >
-            <Icons.github /> Github
-          </Link>
-        </div>
-      </section>
-      <footer className="text-muted-foreground absolute bottom-3 w-full text-center text-sm">
-        © {new Date().getFullYear()}{" "}
-        <Link
-          href="https://michalskolak.pl"
-          className={buttonVariants({ variant: "link", className: "!p-0" })}
-        >
-          Michał Skolak
-        </Link>
-      </footer>
-    </>
+    <div className="relative flex h-screen">
+      {focusTask ? (
+        <FocusMode
+          task={focusTask}
+          onClose={handleCloseFocusMode}
+          onUpdate={updateTask}
+        />
+      ) : (
+        <>
+          <Sidebar currentView={currentView} onViewChange={setCurrentView} />
+          {renderView()}
+          <TaskDetailSidebar
+            task={selectedTask}
+            onClose={handleCloseTaskDetail}
+            onUpdate={updateTask}
+          />
+        </>
+      )}
+      <ScratchpadModal open={scratchpadOpen} onOpenChange={setScratchpadOpen} />
+      <AddTaskModal
+        isOpen={addTaskModalOpen}
+        onClose={() => setAddTaskModalOpen(false)}
+        defaultProjectId={getDefaultProjectId()}
+        isDaily={getIsDaily()}
+      />
+    </div>
   );
 };
 
