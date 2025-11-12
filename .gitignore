@@ -52,4 +52,3 @@ sitemap-*.xml
 
 # large files
 /flyway-11.13.2/
-/public/media/
