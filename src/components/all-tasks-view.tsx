@@ -23,13 +23,14 @@ export const AllTasksView = ({
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>("order");
-  const [groupByProject, setGroupByProject] = useState(false);
+  const [groupByProject, setGroupByProject] = useState(true);
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
 
   // Filter and sort tasks
   const filteredAndSortedTasks = tasks
     .filter((task) => {
       if (task.completed) return false;
+      if (task.parentTaskId) return false; // Filter out subtasks
 
       // Filter by selected tags
       if (selectedTags.length > 0) {
@@ -103,11 +104,19 @@ export const AllTasksView = ({
   const groupedTasks = groupByProject
     ? allTasks.reduce(
         (acc, task) => {
-          const projectId = task.projectId || "no-project";
-          if (!acc[projectId]) {
-            acc[projectId] = [];
+          let groupKey: string;
+          if (task.isDaily) {
+            groupKey = "daily-tasks";
+          } else if (task.projectId) {
+            groupKey = task.projectId;
+          } else {
+            groupKey = "no-project";
           }
-          acc[projectId].push(task);
+
+          if (!acc[groupKey]) {
+            acc[groupKey] = [];
+          }
+          acc[groupKey].push(task);
           return acc;
         },
         {} as Record<string, Task[]>,
@@ -237,6 +246,17 @@ export const AllTasksView = ({
           ) : groupByProject ? (
             // Grouped view
             <>
+              {/* Daily Tasks */}
+              {groupedTasks?.["daily-tasks"] && (
+                <div className="mb-6">
+                  <h3 className="text-muted-foreground mb-3 px-2 text-sm font-semibold">
+                    Daily Tasks
+                  </h3>
+                  <div className="space-y-2">
+                    {groupedTasks["daily-tasks"].map(renderTask)}
+                  </div>
+                </div>
+              )}
               {/* Tasks without project */}
               {groupedTasks?.["no-project"] && (
                 <div className="mb-6">

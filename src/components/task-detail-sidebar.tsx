@@ -27,7 +27,13 @@ export const TaskDetailSidebar = ({
   onClose,
   onUpdate,
 }: TaskDetailSidebarProps) => {
-  const { projects, getActiveProjects } = useTasks();
+  const {
+    projects,
+    getActiveProjects,
+    addToToday,
+    removeFromToday,
+    isInToday,
+  } = useTasks();
   const [title, setTitle] = useState(task?.title || "");
   const [description, setDescription] = useState(task?.description || "");
   const [dueDate, setDueDate] = useState(task?.dueDate || "");
@@ -344,6 +350,19 @@ export const TaskDetailSidebar = ({
               className="w-full cursor-pointer hover:opacity-90"
             >
               Focus Mode
+            </Button>
+            <Button
+              onClick={() => {
+                if (isInToday(task.id)) {
+                  removeFromToday(task.id);
+                } else {
+                  addToToday(task.id);
+                }
+              }}
+              variant={isInToday(task.id) ? "outline" : "default"}
+              className="w-full hover:cursor-pointer"
+            >
+              {isInToday(task.id) ? "Remove from Today" : "Add to Today"}
             </Button>
             <Button
               onClick={handleSave}

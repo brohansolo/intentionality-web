@@ -2,9 +2,11 @@
 
 import { Check, Minus, Pause, Play, Plus, RotateCcw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTimer } from "react-timer-hook";
 
 import { AddTaskModal } from "@/components/add-task-modal";
 import { CompletionAnimation } from "@/components/completion-animation";
+import { SubtaskList } from "@/components/subtask-list";
 import { Button } from "@/components/ui/button";
 import { useTasks } from "@/hooks/use-tasks";
 import { Task } from "@/lib/types";
@@ -16,14 +18,56 @@ interface FocusModeProps {
 }
 
 export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
-  const { projects } = useTasks();
+  const { projects, tasks, addTask, updateTask, deleteTask, reorderTasks } =
+    useTasks();
+  const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || "");
+
+  // Get subtasks for this task
+  const subtasks = tasks
+    .filter((t) => t.parentTaskId === task.id)
+    .sort((a, b) => a.order - b.order);
+
   const [timerMinutes, setTimerMinutes] = useState(task.timePeriod || 25);
-  const [timeLeft, setTimeLeft] = useState((task.timePeriod || 25) * 60); // in seconds
-  const [isRunning, setIsRunning] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioLoaded, setAudioLoaded] = useState(false);
+  const timeInputRef = useRef<HTMLInputElement | null>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
+  const titleRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Auto-resize title textarea
+  useEffect(() => {
+    const textarea = titleRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [title]);
+
+  // Auto-resize description textarea
+  useEffect(() => {
+    const textarea = descriptionRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [description]);
+
+  // Initialize timer with saved time or default
+  const getExpiryTimestamp = (seconds: number) => {
+    const time = new Date();
+    time.setSeconds(time.getSeconds() + seconds);
+    return time;
+  };
+
+  const initialSeconds = task.timeLeft ?? (task.timePeriod || 25) * 60;
+
+  const { totalSeconds, seconds, minutes, isRunning, start, pause, restart } =
+    useTimer({
+      expiryTimestamp: getExpiryTimestamp(initialSeconds),
+      autoStart: false,
+      onExpire: () => playNotificationSound(),
+    });
 
   // Add task dialog state
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
@@ -38,7 +82,7 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
     // Users can replace this with their own MP3 file
     audioRef.current = new Audio();
     // Default system beep sound (simple tone)
-    audioRef.current.src = "/media/bell-sound.mp3";
+    audioRef.current.src = "/media/timer-end-sound.mp3";
 
     // Preload the audio
     audioRef.current.load();
@@ -49,39 +93,12 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
     });
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
     };
   }, []);
-
-  // Timer countdown logic
-  useEffect(() => {
-    if (isRunning && timeLeft > 0) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            setIsRunning(false);
-            playNotificationSound();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isRunning, timeLeft]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -94,12 +111,14 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
       const isInInput =
         target.tagName === "INPUT" || target.tagName === "TEXTAREA";
 
-      // 'a' key to add task - works globally with Ctrl/Cmd modifier, or when not in input
-      if ((e.key === "a" || e.key === "A") && !showAddTaskDialog) {
-        if (e.ctrlKey || e.metaKey || !isInInput) {
-          e.preventDefault();
-          setShowAddTaskDialog(true);
-        }
+      // 'a' key to add task - only works when not in input field
+      if (
+        (e.key === "a" || e.key === "A") &&
+        !showAddTaskDialog &&
+        !isInInput
+      ) {
+        e.preventDefault();
+        setShowAddTaskDialog(true);
       } else if (e.key === "Escape" && !showAddTaskDialog) {
         if (isInInput) {
           // Blur the input field when Escape is pressed
@@ -109,9 +128,20 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
           e.preventDefault();
           setShowFocusModeExitConfirmation(true);
         }
-      } else if (e.key === " " && e.target === document.body) {
+      } else if (e.key === " " && !isInInput) {
+        // Only toggle play/pause if not in an input field
         e.preventDefault();
-        setIsRunning((prev) => !prev);
+        if (isRunningRef.current) {
+          pause();
+          pausedTimeRef.current = totalSecondsRef.current;
+        } else if (pausedTimeRef.current !== null) {
+          restart(getExpiryTimestamp(pausedTimeRef.current), true);
+          pausedTimeRef.current = null;
+        } else {
+          // Start fresh
+          console.log("Starting fresh:", pausedTimeRef.current);
+          start();
+        }
       }
     };
 
@@ -122,6 +152,9 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
     timerMinutes,
     showAddTaskDialog,
     showFocusModeExitConfirmation,
+    pause,
+    restart,
+    start,
   ]);
 
   const playNotificationSound = () => {
@@ -144,16 +177,19 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
     const newMinutes = Math.max(1, Math.min(60, timerMinutes + delta));
     setTimerMinutes(newMinutes);
     if (!isRunning) {
-      setTimeLeft(newMinutes * 60);
+      restart(getExpiryTimestamp(newMinutes * 60), false);
+      pausedTimeRef.current = null;
     }
   };
 
   const handleSecondsChange = (delta: number) => {
-    const newSeconds = Math.max(0, Math.min(3600, timeLeft + delta));
-    setTimeLeft(newSeconds);
-    // Update timerMinutes to reflect the change
+    const newSeconds = Math.max(0, Math.min(3600, totalSeconds + delta));
     const newMinutes = Math.ceil(newSeconds / 60);
     setTimerMinutes(newMinutes);
+    if (!isRunning) {
+      restart(getExpiryTimestamp(newSeconds), false);
+      pausedTimeRef.current = null;
+    }
   };
 
   const handleTimerInputChange = (value: string) => {
@@ -161,12 +197,150 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
     if (!isNaN(numValue) && numValue >= 1 && numValue <= 60) {
       setTimerMinutes(numValue);
       if (!isRunning) {
-        setTimeLeft(numValue * 60);
+        restart(getExpiryTimestamp(numValue * 60), false);
+        pausedTimeRef.current = null;
       }
     }
   };
 
-  const handleTimeLeftChange = (value: string) => {
+  const [editingSection, setEditingSection] = useState<
+    "minutes" | "seconds" | null
+  >(null);
+  const [pendingInput, setPendingInput] = useState("");
+  const pausedTimeRef = useRef<number | null>(null);
+  const isRunningRef = useRef(isRunning);
+  const totalSecondsRef = useRef(totalSeconds);
+
+  // Keep the refs in sync
+  useEffect(() => {
+    isRunningRef.current = isRunning;
+    totalSecondsRef.current = totalSeconds;
+  }, [isRunning, totalSeconds]);
+
+  const handleTimeLeftClick = () => {
+    const input = timeInputRef.current;
+    if (!input) return;
+
+    const cursorPos = input.selectionStart ?? 0;
+    const isInMinutes = cursorPos < 3; // Before the colon at position 2
+
+    setEditingSection(isInMinutes ? "minutes" : "seconds");
+    setPendingInput("");
+  };
+
+  const handleTimeLeftKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const input = timeInputRef.current;
+    if (!input) return;
+
+    // Handle backspace/delete
+    if (e.key === "Backspace" || e.key === "Delete") {
+      setPendingInput("");
+      return;
+    }
+
+    // Handle arrow keys and tab - navigate between sections
+    if (e.key === "ArrowRight" || e.key === "Tab") {
+      e.preventDefault();
+      setEditingSection("seconds");
+      setPendingInput("");
+      setTimeout(() => input.setSelectionRange(3, 3), 0);
+      return;
+    }
+
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      setEditingSection("minutes");
+      setPendingInput("");
+      setTimeout(() => input.setSelectionRange(0, 0), 0);
+      return;
+    }
+
+    // Only allow digits
+    if (!/^\d$/.test(e.key)) {
+      if (e.key.length === 1) {
+        e.preventDefault();
+      }
+      return;
+    }
+
+    e.preventDefault();
+
+    const currentValue = input.value;
+    const [currentMins, currentSecs] = currentValue
+      .split(":")
+      .map((s) => s || "00");
+
+    // Determine which section we're editing
+    const cursorPos = input.selectionStart ?? 0;
+    const activeSection =
+      editingSection ?? (cursorPos < 3 ? "minutes" : "seconds");
+
+    if (activeSection === "minutes") {
+      // Build up the new input
+      const newInput = pendingInput + e.key;
+      setPendingInput(newInput);
+
+      if (newInput.length === 1) {
+        // First digit of minutes
+        const newValue = `${newInput.padStart(2, "0")}:${currentSecs}`;
+        input.value = newValue;
+        handleTimeLeftChange(newValue, true);
+        setTimeout(() => input.setSelectionRange(1, 1), 0);
+      } else if (newInput.length === 2) {
+        // Second digit of minutes
+        const mins = parseInt(newInput, 10);
+        if (mins <= 59) {
+          const newValue = `${newInput}:${currentSecs}`;
+          input.value = newValue;
+          handleTimeLeftChange(newValue, true);
+          setTimeout(() => input.setSelectionRange(2, 2), 0);
+        }
+      } else if (newInput.length > 2) {
+        // Overflow to seconds
+        const minsStr = newInput.slice(0, 2);
+        const secsStr = newInput.slice(2, 4);
+        const mins = parseInt(minsStr, 10);
+        const secs = parseInt(secsStr, 10);
+
+        if (mins <= 59 && secs <= 59) {
+          const newValue = `${minsStr}:${secsStr.padStart(2, "0")}`;
+          input.value = newValue;
+          handleTimeLeftChange(newValue, true);
+          setEditingSection("seconds");
+          setPendingInput(secsStr);
+          setTimeout(
+            () =>
+              input.setSelectionRange(3 + secsStr.length, 3 + secsStr.length),
+            0,
+          );
+        }
+      }
+    } else {
+      // Editing seconds
+      const newInput = pendingInput + e.key;
+      setPendingInput(newInput);
+
+      if (newInput.length === 1) {
+        // First digit of seconds
+        const newValue = `${currentMins}:${newInput.padStart(2, "0")}`;
+        input.value = newValue;
+        handleTimeLeftChange(newValue, true);
+        setTimeout(() => input.setSelectionRange(4, 4), 0);
+      } else if (newInput.length >= 2) {
+        // Second digit of seconds
+        const secs = parseInt(newInput.slice(0, 2), 10);
+        if (secs <= 59) {
+          const newValue = `${currentMins}:${newInput.slice(0, 2)}`;
+          input.value = newValue;
+          handleTimeLeftChange(newValue, true);
+          setTimeout(() => input.setSelectionRange(5, 5), 0);
+          setPendingInput(newInput.slice(0, 2));
+        }
+      }
+    }
+  };
+
+  const handleTimeLeftChange = (value: string, wasUserEdit = false) => {
     // Parse MM:SS format
     const parts = value.split(":");
     if (parts.length === 2) {
@@ -176,34 +350,44 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
         !isNaN(mins) &&
         !isNaN(secs) &&
         mins >= 0 &&
-        mins <= 60 &&
+        mins <= 59 &&
         secs >= 0 &&
-        secs < 60
+        secs <= 59
       ) {
-        const totalSeconds = mins * 60 + secs;
-        setTimeLeft(totalSeconds);
+        const newTotalSeconds = mins * 60 + secs;
+        setTimerMinutes(Math.ceil(newTotalSeconds / 60));
+
+        // Only restart the timer if user is manually editing
+        if (wasUserEdit) {
+          restart(getExpiryTimestamp(newTotalSeconds), false);
+          pausedTimeRef.current = null;
+        }
       }
     }
   };
 
   const handleReset = () => {
-    setIsRunning(false);
-    setTimeLeft(timerMinutes * 60);
+    restart(getExpiryTimestamp(timerMinutes * 60), false);
+    pausedTimeRef.current = null;
   };
 
   const handleSave = () => {
     onUpdate(task.id, {
+      title: title.trim() || task.title,
       description: description.trim() || undefined,
       timePeriod: timerMinutes,
+      timeLeft: totalSeconds,
     });
     onClose();
   };
 
   const handleDone = () => {
-    // Save description and timer, then mark as complete
+    // Save title, description and timer, then mark as complete
     onUpdate(task.id, {
+      title: title.trim() || task.title,
       description: description.trim() || undefined,
       timePeriod: timerMinutes,
+      timeLeft: undefined, // Clear saved time when completing task
       completed: true,
     });
     // Show completion animation
@@ -241,16 +425,15 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
     document.addEventListener("keydown", handleExitDialogKeyDown);
     return () =>
       document.removeEventListener("keydown", handleExitDialogKeyDown);
-  }, [showFocusModeExitConfirmation]);
+  }, [showFocusModeExitConfirmation, handleSave]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+  const formatTime = (mins: number, secs: number) => {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const maxSeconds = timerMinutes * 60;
   const percentage =
-    ((timerMinutes * 60 - timeLeft) / (timerMinutes * 60)) * 100;
+    maxSeconds > 0 ? ((maxSeconds - totalSeconds) / maxSeconds) * 100 : 0;
   const circumference = 2 * Math.PI * 150; // Updated to match new radius
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
@@ -364,13 +547,15 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
               }}
             >
               <input
+                ref={timeInputRef}
                 type="text"
-                value={formatTime(timeLeft)}
+                value={formatTime(minutes, seconds)}
                 onChange={(e) => handleTimeLeftChange(e.target.value)}
+                onKeyDown={handleTimeLeftKeyDown}
+                onClick={handleTimeLeftClick}
                 disabled={isRunning}
                 className="border-none bg-transparent text-center text-7xl font-bold tabular-nums outline-none disabled:cursor-not-allowed"
                 style={{ width: "280px" }}
-                onFocus={(e) => e.target.select()}
               />
             </div>
           </div>
@@ -478,7 +663,18 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
                       setAudioLoaded(false);
                     });
                 }
-                setIsRunning(!isRunning);
+                if (isRunning) {
+                  // Pause the timer
+                  pause();
+                  pausedTimeRef.current = totalSecondsRef.current;
+                } else if (pausedTimeRef.current !== null) {
+                  // Resume from paused state - restart with saved time
+                  restart(getExpiryTimestamp(pausedTimeRef.current), true);
+                  pausedTimeRef.current = null;
+                } else {
+                  // Start fresh
+                  start();
+                }
               }}
               size="lg"
               style={{
@@ -572,70 +768,135 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
           overflowY: "auto",
         }}
       >
-        <div style={{ maxWidth: "768px", margin: "0 auto", width: "100%" }}>
-          <h1
-            style={{
-              fontSize: "36px",
-              fontWeight: "bold",
-              marginBottom: "32px",
-            }}
-          >
-            {task.title}
-          </h1>
-
-          <div style={{ marginBottom: "16px" }}>
-            <label
-              htmlFor="focus-description"
+        <div
+          style={{
+            marginBottom: "16px",
+          }}
+        >
+          <div style={{ margin: "0 auto", width: "100%" }}>
+            <textarea
+              ref={titleRef}
+              value={title}
+              onChange={(e) => setTitle(e.target.value.trim())}
+              placeholder="Task title..."
+              rows={1}
               style={{
-                fontSize: "18px",
-                fontWeight: "500",
-                marginBottom: "12px",
-                display: "block",
+                fontSize: "36px",
+                fontWeight: "bold",
+                marginLeft: "-15px",
+                width: "100%",
+                border: "2px solid transparent",
+                borderRadius: "8px",
+                padding: "8px 12px",
+                backgroundColor: "transparent",
+                outline: "none",
+                resize: "none",
+                overflow: "hidden",
+                fontFamily: "inherit",
+                lineHeight: "1.2",
+              }}
+              className="hover:border-border focus:border-primary transition-colors"
+            />
+            <div
+              style={{
+                fontSize: "14px",
+                color: "var(--muted-foreground, #6b7280)",
               }}
             >
-              Description
-            </label>
-            <textarea
-              id="focus-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add notes, thoughts, or details about this task..."
-              style={{
-                width: "100%",
-                padding: "16px",
-                border: "1px solid var(--border, #e5e7eb)",
-                borderRadius: "8px",
-                resize: "none",
-                height: "384px",
-                fontSize: "16px",
-                fontFamily: "inherit",
-                lineHeight: "1.5",
-              }}
-              // eslint-disable-next-line jsx-a11y/no-autofocus
-              autoFocus
-            />
+              {task.dueDate && (
+                <div style={{ marginBottom: "8px" }}>
+                  <span style={{ fontWeight: "500" }}>Due:</span>{" "}
+                  {new Date(task.dueDate).toLocaleDateString()}
+                </div>
+              )}
+              {task.projectId && (
+                <div style={{ marginBottom: "8px" }}>
+                  <span style={{ fontWeight: "500" }}>Project:</span>{" "}
+                  {projects.find((p) => p.id === task.projectId)?.name ||
+                    task.projectId}
+                </div>
+              )}
+            </div>
           </div>
-
-          <div
+        </div>
+        <div>
+          <label
+            htmlFor="focus-description"
             style={{
-              fontSize: "14px",
-              color: "var(--muted-foreground, #6b7280)",
+              fontSize: "18px",
+              fontWeight: "500",
+              marginBottom: "12px",
+              display: "block",
             }}
           >
-            {task.dueDate && (
-              <div style={{ marginBottom: "8px" }}>
-                <span style={{ fontWeight: "500" }}>Due:</span>{" "}
-                {new Date(task.dueDate).toLocaleDateString()}
-              </div>
-            )}
-            {task.projectId && (
-              <div style={{ marginBottom: "8px" }}>
-                <span style={{ fontWeight: "500" }}>Project:</span>{" "}
-                {projects.find((p) => p.id === task.projectId)?.name ||
-                  task.projectId}
-              </div>
-            )}
+            Description
+          </label>
+          <textarea
+            ref={descriptionRef}
+            id="focus-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Add notes, thoughts, or details about this task..."
+            style={{
+              width: "100%",
+              padding: "16px",
+              marginLeft: "-5px",
+              border: "1px solid var(--border, #e5e7eb)",
+              borderRadius: "8px",
+              resize: "vertical",
+              minHeight: "200px",
+              fontSize: "16px",
+              fontFamily: "inherit",
+              lineHeight: "1.5",
+              overflow: "hidden",
+            }}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
+          />
+        </div>
+
+        {/* Subtasks Section */}
+        <div style={{ marginTop: "24px" }}>
+          <div
+            style={{
+              fontSize: "18px",
+              fontWeight: "500",
+              marginBottom: "12px",
+              display: "block",
+            }}
+          >
+            Subtasks
           </div>
+          <SubtaskList
+            subtasks={subtasks}
+            onAddSubtask={(title) => {
+              const subtaskId = addTask(
+                title,
+                task.projectId,
+                undefined,
+                false,
+                undefined,
+                "",
+              );
+              // Update the newly created subtask to have the parent task ID
+              updateTask(subtaskId, {
+                parentTaskId: task.id,
+                order: subtasks.length,
+              });
+            }}
+            onRemoveSubtask={(id) => deleteTask(id)}
+            onToggleSubtask={(id) => {
+              const subtask = subtasks.find((st) => st.id === id);
+              if (subtask) {
+                updateTask(id, { completed: !subtask.completed });
+              }
+            }}
+            onReorderSubtasks={(reorderedSubtasks) => {
+              reorderTasks(
+                reorderedSubtasks.map((st, index) => ({ ...st, order: index })),
+              );
+            }}
+          />
         </div>
       </div>
 

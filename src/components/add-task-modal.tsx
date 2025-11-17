@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { TagInput } from "@/components/tag-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,13 +28,16 @@ export const AddTaskModal = ({
   defaultProjectId,
   isDaily = false,
 }: AddTaskModalProps) => {
-  const { projects, addTask } = useTasks();
+  const { projects, addTask, addToToday } = useTasks();
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskProject, setNewTaskProject] = useState<string>(
     defaultProjectId || "",
   );
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [timePeriod, setTimePeriod] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isDailyTask, setIsDailyTask] = useState(isDaily);
+  const [addToTodayList, setAddToTodayList] = useState(false);
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [highlightSave, setHighlightSave] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -68,7 +72,10 @@ export const AddTaskModal = ({
       newTaskTitle.trim() ||
       newTaskDescription.trim() ||
       newTaskProject ||
-      timePeriod
+      timePeriod ||
+      selectedTags.length > 0 ||
+      isDailyTask !== isDaily ||
+      addToTodayList
     );
   };
 
@@ -77,6 +84,9 @@ export const AddTaskModal = ({
     setNewTaskProject(defaultProjectId || "");
     setNewTaskDescription("");
     setTimePeriod("");
+    setSelectedTags([]);
+    setIsDailyTask(isDaily);
+    setAddToTodayList(false);
     setHighlightSave(false);
     setShowExitConfirmation(false);
     onClose();
@@ -106,15 +116,20 @@ export const AddTaskModal = ({
   const handleSaveNewTask = () => {
     if (!newTaskTitle.trim()) return;
 
-    // Use addTask from useTasks hook
-    addTask(
+    const taskId = addTask(
       newTaskTitle.trim(),
       newTaskProject && newTaskProject !== "none" ? newTaskProject : undefined,
       undefined, // no due date
-      isDaily, // is daily (from prop)
+      isDailyTask, // is daily (from state)
       timePeriod ? Number(timePeriod) : undefined, // time period
       newTaskDescription.trim() || undefined,
+      selectedTags.length > 0 ? selectedTags : undefined, // tags
     );
+
+    // Add to Today list if checkbox is checked
+    if (addToTodayList && taskId) {
+      addToToday(taskId);
+    }
 
     resetModal();
   };
@@ -155,7 +170,7 @@ export const AddTaskModal = ({
         document.removeEventListener("keydown", handleKeyDown);
       };
     }
-  }, [showExitConfirmation]);
+  }, [showExitConfirmation, resetModal]);
 
   if (!isOpen) return null;
 
@@ -209,7 +224,7 @@ export const AddTaskModal = ({
             </p>
           </div>
 
-          <div style={{ display: "grid", gap: "16px", marginBottom: "24px" }}>
+          <div style={{ display: "grid", gap: "24px", marginBottom: "24px" }}>
             <div style={{ display: "grid", gap: "8px" }}>
               <label
                 htmlFor="task-title"
@@ -251,7 +266,58 @@ export const AddTaskModal = ({
                 </SelectContent>
               </Select>
             </div>
-            {isDaily && (
+
+            <TagInput
+              selectedTags={selectedTags}
+              onTagsChange={setSelectedTags}
+            />
+
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <input
+                type="checkbox"
+                id="add-to-today"
+                checked={addToTodayList}
+                onChange={(e) => setAddToTodayList(e.target.checked)}
+                style={{
+                  width: "16px",
+                  height: "16px",
+                  cursor: "pointer",
+                }}
+              />
+              <label
+                htmlFor="add-to-today"
+                style={{
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                }}
+              >
+                Add to Today
+              </label>
+              <input
+                type="checkbox"
+                id="is-daily-task"
+                checked={isDailyTask}
+                onChange={(e) => setIsDailyTask(e.target.checked)}
+                style={{
+                  width: "16px",
+                  height: "16px",
+                  cursor: "pointer",
+                }}
+              />
+              <label
+                htmlFor="is-daily-task"
+                style={{
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                }}
+              >
+                Daily Task
+              </label>
+            </div>
+
+            {isDailyTask && (
               <div style={{ display: "grid", gap: "8px" }}>
                 <label
                   htmlFor="task-time-period"

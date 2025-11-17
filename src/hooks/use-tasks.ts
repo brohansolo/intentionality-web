@@ -82,11 +82,13 @@ export const useTasks = () => {
     isDaily: boolean = false,
     timePeriod?: number,
     description?: string,
+    tags?: string[],
+    providedId?: string,
   ) => {
     const maxOrder =
       tasks.length > 0 ? Math.max(...tasks.map((t) => t.order || 0)) : 0;
     const newTask: Task = {
-      id: crypto.randomUUID(),
+      id: providedId || crypto.randomUUID(),
       title,
       description,
       completed: false,
@@ -95,6 +97,7 @@ export const useTasks = () => {
       order: maxOrder + 1,
       isDaily,
       timePeriod,
+      tags,
       createdAt: new Date().toISOString(),
     };
     console.log("Adding task:", newTask);
@@ -103,6 +106,7 @@ export const useTasks = () => {
     const updatedTasks = [...tasks, newTask];
     console.log("Updated tasks:", updatedTasks);
     storage.saveTasks(updatedTasks);
+    return newTask.id;
   };
 
   const updateTask = (id: string, updates: Partial<Task>) => {

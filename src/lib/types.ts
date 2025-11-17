@@ -5,9 +5,11 @@ export interface Task {
   completed: boolean;
   dueDate?: string;
   projectId?: string;
+  parentTaskId?: string;
   order: number;
   isDaily: boolean;
   timePeriod?: number; // in minutes
+  timeLeft?: number; // remaining time in seconds for focus mode
   lastCompleted?: string; // for daily tasks
   completionHistory?: Record<string, boolean>; // YYYY-MM-DD -> true for daily tasks
   tags?: string[];

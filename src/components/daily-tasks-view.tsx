@@ -22,7 +22,7 @@ export const DailyTasksView = ({
     projects,
   } = useTasks();
 
-  const dailyTasks = getDailyTasks();
+  const dailyTasks = getDailyTasks().filter((task) => !task.parentTaskId);
 
   const handleToggle = (id: string, completed: boolean) => {
     if (completed) {

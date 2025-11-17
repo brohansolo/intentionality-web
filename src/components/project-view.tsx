@@ -44,11 +44,13 @@ export const ProjectView = ({
   const [editProjectName, setEditProjectName] = useState("");
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editDescription, setEditDescription] = useState("");
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(true);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
 
   const project = projects.find((p) => p.id === projectId);
-  const allProjectTasks = getProjectTasks(projectId);
+  const allProjectTasks = getProjectTasks(projectId).filter(
+    (task) => !task.parentTaskId,
+  );
   const projectTasks = allProjectTasks.filter((task) => !task.completed);
   const completedTasks = allProjectTasks.filter((task) => task.completed);
 
@@ -235,6 +237,12 @@ export const ProjectView = ({
                 <ChevronRight className="text-muted-foreground h-4 w-4" />
               )}
               <span className="text-sm font-medium">Description</span>
+              {!isDescriptionExpanded && project.description && (
+                <span className="text-muted-foreground/60 ml-2 truncate text-xs">
+                  {project.description.substring(0, 60)}
+                  {project.description.length > 60 && "..."}
+                </span>
+              )}
             </button>
             {isDescriptionExpanded && (
               <>

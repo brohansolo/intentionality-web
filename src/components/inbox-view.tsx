@@ -19,7 +19,7 @@ export const InboxView = ({
   const { getInboxTasks, updateTask, deleteTask } = useTasks();
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
 
-  const allInboxTasks = getInboxTasks();
+  const allInboxTasks = getInboxTasks().filter((task) => !task.parentTaskId);
   const inboxTasks = allInboxTasks.filter((task) => !task.completed);
   const completedTasks = allInboxTasks.filter((task) => task.completed);
 
