@@ -66,26 +66,30 @@ export const useTasks = () => {
   const taskTags = useAppSelector((state) => state.taskTags.items);
   const projectTags = useAppSelector((state) => state.projectTags.items);
 
-  // Initialize StorageManager
+  // Initialize StorageManager (lazy initialization in useEffect to avoid SSR issues)
   const storageManagerRef = useRef<StorageManager | null>(null);
 
-  if (!storageManagerRef.current) {
-    const enableRemoteSync = env.NEXT_PUBLIC_STORAGE_TYPE === "remote";
-    const remoteAdapter = enableRemoteSync
-      ? new RemoteStorageAdapter()
-      : undefined;
-    const syncIntervalMs = env.NEXT_PUBLIC_SYNC_INTERVAL_MS;
+  // Helper to get or create storage manager
+  const getStorageManager = () => {
+    if (!storageManagerRef.current) {
+      const enableRemoteSync = env.NEXT_PUBLIC_STORAGE_TYPE === "remote";
+      const remoteAdapter = enableRemoteSync
+        ? new RemoteStorageAdapter()
+        : undefined;
+      const syncIntervalMs = env.NEXT_PUBLIC_SYNC_INTERVAL_MS;
 
-    storageManagerRef.current = new StorageManager(
-      enableRemoteSync,
-      remoteAdapter,
-      syncIntervalMs,
-    );
-  }
-
-  const storageManager = storageManagerRef.current;
+      storageManagerRef.current = new StorageManager(
+        enableRemoteSync,
+        remoteAdapter,
+        syncIntervalMs,
+      );
+    }
+    return storageManagerRef.current;
+  };
 
   useEffect(() => {
+    const storageManager = getStorageManager();
+
     const loadData = async () => {
       const [
         loadedTasks,
@@ -95,12 +99,12 @@ export const useTasks = () => {
         loadedTaskTags,
         loadedProjectTags,
       ] = await Promise.all([
-        storageManager.getTasks(),
-        storageManager.getProjects(),
-        storageManager.getTodayTasks(),
-        storageManager.getTags(),
-        storageManager.getTaskTags(),
-        storageManager.getProjectTags(),
+        getStorageManager().getTasks(),
+        getStorageManager().getProjects(),
+        getStorageManager().getTodayTasks(),
+        getStorageManager().getTags(),
+        getStorageManager().getTaskTags(),
+        getStorageManager().getProjectTags(),
       ]);
       dispatch(setTasks(loadedTasks));
       dispatch(setProjects(loadedProjects));
@@ -131,7 +135,7 @@ export const useTasks = () => {
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [dispatch, storageManager]);
+  }, [dispatch]);
 
   const addTask = async (
     title: string,
@@ -160,12 +164,12 @@ export const useTasks = () => {
     console.log("Adding task:", newTask);
     console.log("Current tasks:", tasks);
     dispatch(addTaskAction(newTask));
-    await storageManager.addTask(newTask);
+    await getStorageManager().addTask(newTask);
 
     // Add tag relationships if provided
     if (tagIds && tagIds.length > 0) {
       for (const tagId of tagIds) {
-        await storageManager.addTaskTag(newTask.id, tagId);
+        await getStorageManager().addTaskTag(newTask.id, tagId);
         dispatch(
           addTaskTag({
             taskId: newTask.id,
@@ -181,13 +185,13 @@ export const useTasks = () => {
 
   const updateTask = async (id: string, updates: Partial<Task>) => {
     dispatch(updateTaskAction({ id, updates }));
-    await storageManager.updateTask(id, updates);
+    await getStorageManager().updateTask(id, updates);
   };
 
   const deleteTask = async (id: string) => {
     dispatch(deleteTaskAction(id));
     dispatch(removeTaskTagsByTask(id));
-    await storageManager.deleteTask(id);
+    await getStorageManager().deleteTask(id);
   };
 
   const toTitleCase = (str: string): string => {
@@ -207,7 +211,7 @@ export const useTasks = () => {
       createdAt: new Date().toISOString(),
     };
     dispatch(addProjectAction(newProject));
-    await storageManager.addProject(newProject);
+    await getStorageManager().addProject(newProject);
   };
 
   const updateProject = async (id: string, updates: Partial<Project>) => {
@@ -216,20 +220,20 @@ export const useTasks = () => {
       processedUpdates.name = toTitleCase(updates.name);
     }
     dispatch(updateProjectAction({ id, updates: processedUpdates }));
-    await storageManager.updateProject(id, processedUpdates);
+    await getStorageManager().updateProject(id, processedUpdates);
   };
 
   const deleteProject = async (id: string) => {
     // Delete all tasks in this project
     const projectTasks = tasks.filter((task) => task.projectId === id);
     for (const task of projectTasks) {
-      await storageManager.deleteTask(task.id);
+      await getStorageManager().deleteTask(task.id);
     }
 
     dispatch(deleteTasksByProject(id));
     dispatch(deleteProjectAction(id));
     dispatch(removeProjectTagsByProject(id));
-    await storageManager.deleteProject(id);
+    await getStorageManager().deleteProject(id);
   };
 
   const reorderTasks = async (projectTasks: Task[]) => {
@@ -241,7 +245,7 @@ export const useTasks = () => {
       order: index,
     }));
     dispatch(reorderTasksAction([...otherTasks, ...reorderedTasks]));
-    await storageManager.reorderTasks(reorderedTasks);
+    await getStorageManager().reorderTasks(reorderedTasks);
   };
 
   const getInboxTasks = () =>
@@ -253,7 +257,7 @@ export const useTasks = () => {
       order: index,
     }));
     dispatch(reorderProjectsAction(reorderedWithOrder));
-    await storageManager.reorderProjects(reorderedWithOrder);
+    await getStorageManager().reorderProjects(reorderedWithOrder);
   };
 
   const getProjectTasks = (projectId: string) =>
@@ -313,12 +317,12 @@ export const useTasks = () => {
     };
 
     dispatch(addToTodayAction(newTodayTask));
-    await storageManager.saveTodayTasks([...todayTasks, newTodayTask]);
+    await getStorageManager().saveTodayTasks([...todayTasks, newTodayTask]);
   };
 
   const removeFromToday = async (taskId: string) => {
     dispatch(removeFromTodayAction(taskId));
-    await storageManager.saveTodayTasks(
+    await getStorageManager().saveTodayTasks(
       todayTasks.filter((t) => t.taskId !== taskId),
     );
   };
@@ -329,7 +333,7 @@ export const useTasks = () => {
       order: index,
     }));
     dispatch(reorderTodayTasksAction(reorderedWithOrder));
-    await storageManager.saveTodayTasks(reorderedWithOrder);
+    await getStorageManager().saveTodayTasks(reorderedWithOrder);
   };
 
   const getTodayTasksList = () => {
@@ -345,7 +349,7 @@ export const useTasks = () => {
 
   const clearToday = async () => {
     dispatch(clearTodayAction());
-    await storageManager.saveTodayTasks([]);
+    await getStorageManager().saveTodayTasks([]);
   };
 
   const addTag = async (name: string, color?: string) => {
@@ -356,20 +360,20 @@ export const useTasks = () => {
       createdAt: new Date().toISOString(),
     };
     dispatch(addTagAction(newTag));
-    await storageManager.addTag(newTag);
+    await getStorageManager().addTag(newTag);
     return newTag;
   };
 
   const updateTag = async (id: string, updates: Partial<Tag>) => {
     dispatch(updateTagAction({ id, updates }));
-    await storageManager.updateTag(id, updates);
+    await getStorageManager().updateTag(id, updates);
   };
 
   const deleteTag = async (id: string) => {
     dispatch(deleteTagAction(id));
     dispatch(removeTaskTagsByTag(id));
     dispatch(removeProjectTagsByTag(id));
-    await storageManager.deleteTag(id);
+    await getStorageManager().deleteTag(id);
   };
 
   const getOrCreateTag = async (name: string, color?: string) => {
@@ -394,19 +398,19 @@ export const useTasks = () => {
   };
 
   const addTagToTask = async (taskId: string, tagId: string) => {
-    await storageManager.addTaskTag(taskId, tagId);
+    await getStorageManager().addTaskTag(taskId, tagId);
     dispatch(
       addTaskTag({ taskId, tagId, createdAt: new Date().toISOString() }),
     );
   };
 
   const removeTagFromTask = async (taskId: string, tagId: string) => {
-    await storageManager.removeTaskTag(taskId, tagId);
+    await getStorageManager().removeTaskTag(taskId, tagId);
     dispatch(removeTaskTag({ taskId, tagId }));
   };
 
   const addTagToProject = async (projectId: string, tagId: string) => {
-    await storageManager.addProjectTag(projectId, tagId);
+    await getStorageManager().addProjectTag(projectId, tagId);
     dispatch(
       addProjectTag({
         projectId,
@@ -417,25 +421,25 @@ export const useTasks = () => {
   };
 
   const removeTagFromProject = async (projectId: string, tagId: string) => {
-    await storageManager.removeProjectTag(projectId, tagId);
+    await getStorageManager().removeProjectTag(projectId, tagId);
     dispatch(removeProjectTag({ projectId, tagId }));
   };
 
   // Sync control methods
   const syncNow = async () => {
-    await storageManager.syncNow();
+    await getStorageManager().syncNow();
   };
 
   const getSyncStatus = () => {
-    return storageManager.getSyncStatus();
+    return getStorageManager().getSyncStatus();
   };
 
   const retryFailedSync = () => {
-    storageManager.retryFailed();
+    getStorageManager().retryFailed();
   };
 
   const clearSyncQueue = () => {
-    storageManager.clearQueue();
+    getStorageManager().clearQueue();
   };
 
   return {
