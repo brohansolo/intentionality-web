@@ -36,8 +36,23 @@ export class StorageManager {
 
     // Initialize sync worker if remote sync is enabled
     if (enableRemoteSync && remoteAdapter) {
-      this.worker = new SyncWorker(this.queue, remoteAdapter, syncIntervalMs);
+      this.worker = new SyncWorker(
+        this.queue,
+        remoteAdapter,
+        this.localAdapter,
+        syncIntervalMs,
+      );
       this.worker.start();
+    }
+  }
+
+  /**
+   * Pull latest data from remote and merge with local
+   * Called on app initialization to sync remote state to local
+   */
+  async pullFromRemote(): Promise<void> {
+    if (this.worker) {
+      await this.worker.pullFromRemote();
     }
   }
 

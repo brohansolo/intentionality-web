@@ -91,6 +91,14 @@ export const useTasks = () => {
     const storageManager = getStorageManager();
 
     const loadData = async () => {
+      // First, pull latest data from remote (if remote sync is enabled)
+      // This ensures we have the latest server state before applying queued changes
+      await storageManager.pullFromRemote();
+
+      // Then, process any queued operations to push local changes to remote
+      await storageManager.syncNow();
+
+      // Finally, load all data from localStorage (which now has remote data + queued changes applied)
       const [
         loadedTasks,
         loadedProjects,

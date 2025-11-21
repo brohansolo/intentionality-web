@@ -1,5 +1,6 @@
 import type { Project, Tag, Task } from "@/lib/types";
 
+import { LocalStorageAdapter } from "./local-storage-adapter";
 import { RemoteStorageAdapter } from "./remote-storage-adapter";
 import { SyncQueue } from "./sync-queue";
 import { OperationType, QueuedOperation } from "./types";
@@ -7,10 +8,12 @@ import { OperationType, QueuedOperation } from "./types";
 /**
  * SyncWorker processes queued operations and syncs them to the remote server.
  * Runs on an interval and handles online/offline scenarios.
+ * Also handles pulling data from remote on initialization.
  */
 export class SyncWorker {
   private queue: SyncQueue;
   private remoteAdapter: RemoteStorageAdapter;
+  private localAdapter: LocalStorageAdapter;
   private intervalId: number | null = null;
   private isProcessing = false;
   private syncIntervalMs: number;
@@ -18,10 +21,12 @@ export class SyncWorker {
   constructor(
     queue: SyncQueue,
     remoteAdapter: RemoteStorageAdapter,
+    localAdapter: LocalStorageAdapter,
     syncIntervalMs = 5000,
   ) {
     this.queue = queue;
     this.remoteAdapter = remoteAdapter;
+    this.localAdapter = localAdapter;
     this.syncIntervalMs = syncIntervalMs;
   }
 
@@ -210,6 +215,83 @@ export class SyncWorker {
 
       default:
         throw new Error(`Unknown operation type: ${type}`);
+    }
+  }
+
+  /**
+   * Pull latest data from remote and save to local storage
+   * This is called on app initialization to sync remote -> local
+   */
+  async pullFromRemote(): Promise<void> {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      console.log("Offline - skipping pull from remote");
+      return;
+    }
+
+    try {
+      console.log("Pulling data from remote...");
+
+      // Fetch all data from remote in parallel
+      const [tasks, projects, tags, taskTags, projectTags, todayTasks] =
+        await Promise.all([
+          this.remoteAdapter.getTasks(),
+          this.remoteAdapter.getProjects(),
+          this.remoteAdapter.getTags(),
+          this.remoteAdapter.getTaskTags(),
+          this.remoteAdapter.getProjectTags(),
+          this.remoteAdapter.getTodayTasks(),
+        ]);
+
+      // Save to local storage (overwrites local data with remote)
+      // Use Promise.allSettled to continue even if some operations fail
+      const results = await Promise.allSettled([
+        // Save each entity type by clearing and re-adding all items
+        this.saveToLocal("tasks", tasks),
+        this.saveToLocal("projects", projects),
+        this.saveToLocal("tags", tags),
+        this.saveToLocal("task_tags", taskTags),
+        this.saveToLocal("project_tags", projectTags),
+        this.saveToLocal("today", todayTasks),
+      ]);
+
+      // Log any failures
+      results.forEach((result, index) => {
+        if (result.status === "rejected") {
+          const types = [
+            "tasks",
+            "projects",
+            "tags",
+            "task_tags",
+            "project_tags",
+            "today",
+          ];
+          console.error(
+            `Failed to save ${types[index]} to local:`,
+            result.reason,
+          );
+        }
+      });
+
+      console.log("Successfully pulled data from remote");
+    } catch (error) {
+      console.error("Failed to pull from remote:", error);
+      // Don't throw - we want the app to continue even if pull fails
+    }
+  }
+
+  /**
+   * Helper to save data directly to localStorage
+   */
+  private async saveToLocal(key: string, data: unknown[]): Promise<void> {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      console.error(`Failed to save ${key} to localStorage:`, error);
+      throw error;
     }
   }
 
