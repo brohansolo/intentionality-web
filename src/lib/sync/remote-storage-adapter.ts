@@ -85,7 +85,7 @@ export class RemoteStorageAdapter implements IStorageAdapter {
       });
 
       const data = await this.handleResponse<unknown[]>(response);
-      return data.map(this.dbToTask);
+      return data.map((item) => this.dbToTask(item as Record<string, unknown>));
     } catch (error) {
       console.error("Failed to fetch tasks:", error);
       throw error;
@@ -166,7 +166,9 @@ export class RemoteStorageAdapter implements IStorageAdapter {
       });
 
       const data = await this.handleResponse<unknown[]>(response);
-      return data.map(this.dbToProject);
+      return data.map((item) =>
+        this.dbToProject(item as Record<string, unknown>),
+      );
     } catch (error) {
       console.error("Failed to fetch projects:", error);
       throw error;
@@ -247,7 +249,7 @@ export class RemoteStorageAdapter implements IStorageAdapter {
       });
 
       const data = await this.handleResponse<unknown[]>(response);
-      return data.map(this.dbToTag);
+      return data.map((item) => this.dbToTag(item as Record<string, unknown>));
     } catch (error) {
       console.error("Failed to fetch tags:", error);
       throw error;
@@ -309,7 +311,9 @@ export class RemoteStorageAdapter implements IStorageAdapter {
       );
 
       const data = await this.handleResponse<unknown[]>(response);
-      return data.map(this.dbToTaskTag);
+      return data.map((item) =>
+        this.dbToTaskTag(item as Record<string, unknown>),
+      );
     } catch (error) {
       console.error("Failed to fetch task tags:", error);
       throw error;
@@ -361,7 +365,9 @@ export class RemoteStorageAdapter implements IStorageAdapter {
       );
 
       const data = await this.handleResponse<unknown[]>(response);
-      return data.map(this.dbToProjectTag);
+      return data.map((item) =>
+        this.dbToProjectTag(item as Record<string, unknown>),
+      );
     } catch (error) {
       console.error("Failed to fetch project tags:", error);
       throw error;
@@ -413,7 +419,9 @@ export class RemoteStorageAdapter implements IStorageAdapter {
       );
 
       const data = await this.handleResponse<unknown[]>(response);
-      return data.map(this.dbToTodayTask);
+      return data.map((item) =>
+        this.dbToTodayTask(item as Record<string, unknown>),
+      );
     } catch (error) {
       console.error("Failed to fetch today tasks:", error);
       // Return empty array as fallback for stub implementation

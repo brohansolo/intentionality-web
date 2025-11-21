@@ -1,3 +1,5 @@
+import type { Project, Tag, Task } from "@/lib/types";
+
 import { RemoteStorageAdapter } from "./remote-storage-adapter";
 import { SyncQueue } from "./sync-queue";
 import { OperationType, QueuedOperation } from "./types";
@@ -103,7 +105,7 @@ export class SyncWorker {
       case OperationType.UPDATE_TASK: {
         const { id, updates } = payload as {
           id: string;
-          updates: Parameters<typeof this.remoteAdapter.updateTask>[1];
+          updates: Partial<Task>;
         };
         await this.remoteAdapter.updateTask(id, updates);
         break;
@@ -129,7 +131,7 @@ export class SyncWorker {
       case OperationType.UPDATE_PROJECT: {
         const { id, updates } = payload as {
           id: string;
-          updates: Parameters<typeof this.remoteAdapter.updateProject>[1];
+          updates: Partial<Project>;
         };
         await this.remoteAdapter.updateProject(id, updates);
         break;
@@ -155,7 +157,7 @@ export class SyncWorker {
       case OperationType.UPDATE_TAG: {
         const { id, updates } = payload as {
           id: string;
-          updates: Parameters<typeof this.remoteAdapter.updateTag>[1];
+          updates: Partial<Tag>;
         };
         await this.remoteAdapter.updateTag(id, updates);
         break;
