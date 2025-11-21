@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useTasks } from "@/hooks/use-tasks";
+import { useTasksAdapter as useTasks } from "@/hooks/use-tasks-adapter";
 
 interface AddTaskModalProps {
   isOpen: boolean;
@@ -40,6 +40,7 @@ export const AddTaskModal = ({
   const [addToTodayList, setAddToTodayList] = useState(false);
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [highlightSave, setHighlightSave] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const projectSelectRef = useRef<HTMLButtonElement>(null);
   const timePeriodInputRef = useRef<HTMLInputElement>(null);
@@ -113,25 +114,34 @@ export const AddTaskModal = ({
     }, 50);
   };
 
-  const handleSaveNewTask = () => {
-    if (!newTaskTitle.trim()) return;
+  const handleSaveNewTask = async () => {
+    if (!newTaskTitle.trim() || isSaving) return;
 
-    const taskId = addTask(
-      newTaskTitle.trim(),
-      newTaskProject && newTaskProject !== "none" ? newTaskProject : undefined,
-      undefined, // no due date
-      isDailyTask, // is daily (from state)
-      timePeriod ? Number(timePeriod) : undefined, // time period
-      newTaskDescription.trim() || undefined,
-      selectedTags.length > 0 ? selectedTags : undefined, // tags
-    );
+    try {
+      setIsSaving(true);
 
-    // Add to Today list if checkbox is checked
-    if (addToTodayList && taskId) {
-      addToToday(taskId);
+      const taskId = await addTask(
+        newTaskTitle.trim(),
+        newTaskProject && newTaskProject !== "none" ? newTaskProject : undefined,
+        undefined, // no due date
+        isDailyTask, // is daily (from state)
+        timePeriod ? Number(timePeriod) : undefined, // time period
+        newTaskDescription.trim() || undefined,
+        selectedTags.length > 0 ? selectedTags : undefined, // tags
+      );
+
+      // Add to Today list if checkbox is checked
+      if (addToTodayList && taskId) {
+        addToToday(taskId);
+      }
+
+      resetModal();
+    } catch (error) {
+      console.error("Failed to save task:", error);
+      // TODO: Show error message to user
+    } finally {
+      setIsSaving(false);
     }
-
-    resetModal();
   };
 
   const handleDialogKeyDown = (e: React.KeyboardEvent) => {
@@ -364,12 +374,12 @@ export const AddTaskModal = ({
             </Button>
             <Button
               onClick={handleSaveNewTask}
-              disabled={!newTaskTitle.trim()}
+              disabled={!newTaskTitle.trim() || isSaving}
               style={
                 highlightSave ? { boxShadow: "0 0 0 2px var(--ring)" } : {}
               }
             >
-              Add Task
+              {isSaving ? "Adding..." : "Add Task"}
             </Button>
           </div>
         </div>

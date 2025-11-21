@@ -1,4 +1,4 @@
-import { Project, Task } from "./types";
+import { Project, ProjectTag, Tag, Task, TaskTag } from "./types";
 
 const API_BASE = "/api";
 
@@ -98,5 +98,90 @@ export const dbStorage = {
       body: JSON.stringify({ projects }),
     });
     if (!response.ok) throw new Error("Failed to reorder projects");
+  },
+
+  // Tag operations
+  getTags: async (): Promise<Tag[]> => {
+    const response = await fetch(`${API_BASE}/tags`);
+    if (!response.ok) throw new Error("Failed to fetch tags");
+    return response.json();
+  },
+
+  addTag: async (tag: Tag): Promise<Tag> => {
+    const response = await fetch(`${API_BASE}/tags`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(tag),
+    });
+    if (!response.ok) throw new Error("Failed to create tag");
+    return response.json();
+  },
+
+  updateTag: async (id: string, updates: Partial<Tag>): Promise<Tag> => {
+    const response = await fetch(`${API_BASE}/tags/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    if (!response.ok) throw new Error("Failed to update tag");
+    return response.json();
+  },
+
+  deleteTag: async (id: string): Promise<void> => {
+    const response = await fetch(`${API_BASE}/tags/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete tag");
+  },
+
+  // Tag relationship operations
+  getTaskTags: async (): Promise<TaskTag[]> => {
+    const response = await fetch(`${API_BASE}/task-tags`);
+    if (!response.ok) throw new Error("Failed to fetch task tags");
+    return response.json();
+  },
+
+  addTagToTask: async (taskId: string, tagId: string): Promise<void> => {
+    const response = await fetch(`${API_BASE}/tasks/${taskId}/tags`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tagId }),
+    });
+    if (!response.ok) throw new Error("Failed to add tag to task");
+  },
+
+  removeTagFromTask: async (taskId: string, tagId: string): Promise<void> => {
+    const response = await fetch(`${API_BASE}/tasks/${taskId}/tags/${tagId}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to remove tag from task");
+  },
+
+  getProjectTags: async (): Promise<ProjectTag[]> => {
+    const response = await fetch(`${API_BASE}/project-tags`);
+    if (!response.ok) throw new Error("Failed to fetch project tags");
+    return response.json();
+  },
+
+  addTagToProject: async (projectId: string, tagId: string): Promise<void> => {
+    const response = await fetch(`${API_BASE}/projects/${projectId}/tags`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tagId }),
+    });
+    if (!response.ok) throw new Error("Failed to add tag to project");
+  },
+
+  removeTagFromProject: async (
+    projectId: string,
+    tagId: string,
+  ): Promise<void> => {
+    const response = await fetch(
+      `${API_BASE}/projects/${projectId}/tags/${tagId}`,
+      {
+        method: "DELETE",
+      },
+    );
+    if (!response.ok) throw new Error("Failed to remove tag from project");
   },
 };

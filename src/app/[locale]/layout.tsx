@@ -23,9 +23,12 @@ export const metadata: Metadata = {
   keywords: siteConfig.keywords,
   robots: { index: true, follow: true },
   icons: {
-    icon: "/favicon/favicon.ico",
-    shortcut: "/favicon/favicon-16x16.png",
-    apple: "/favicon/apple-touch-icon.png",
+    icon: [
+      { url: "/favicon/favicon.ico", sizes: "any" },
+      { url: "/favicon/favicon.png", type: "image/png" },
+    ],
+    shortcut: "/favicon/favicon.png",
+    apple: "/favicon/apple-touch-icon-icon.png",
   },
   verification: {
     google: siteConfig.googleSiteVerificationId,

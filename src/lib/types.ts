@@ -12,7 +12,6 @@ export interface Task {
   timeLeft?: number; // remaining time in seconds for focus mode
   lastCompleted?: string; // for daily tasks
   completionHistory?: Record<string, boolean>; // YYYY-MM-DD -> true for daily tasks
-  tags?: string[];
   createdAt: string;
 }
 
@@ -22,7 +21,6 @@ export interface Project {
   description?: string;
   completed: boolean;
   order: number;
-  tags?: string[];
   createdAt: string;
 }
 
@@ -36,6 +34,19 @@ export interface Tag {
 export interface TodayTask {
   taskId: string;
   order: number;
+}
+
+// Junction table types for many-to-many relationships
+export interface TaskTag {
+  taskId: string;
+  tagId: string;
+  createdAt: string;
+}
+
+export interface ProjectTag {
+  projectId: string;
+  tagId: string;
+  createdAt: string;
 }
 
 export type View = "inbox" | "next-steps" | "daily-tasks" | "today" | string;

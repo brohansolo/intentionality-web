@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { useTasks } from "@/hooks/use-tasks";
+import { useTasksAdapter as useTasks } from "@/hooks/use-tasks-adapter";
 import { Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -24,19 +24,22 @@ const DraggableTaskItem = ({
   onDragStart,
 }: DraggableTaskItemProps) => {
   const inToday = isInToday;
+  const today = new Date().toISOString().split("T")[0];
+  const isCompletedToday = task.isDaily && task.completionHistory?.[today] === true;
+  const isDisabled = inToday || isCompletedToday;
 
   return (
     <div
-      draggable={!inToday}
+      draggable={!isDisabled}
       onDragStart={(e) => onDragStart(e, task.id)}
       className={cn(
         "rounded-md border p-2 text-sm",
-        inToday
+        isDisabled
           ? "bg-muted/50 border-muted text-muted-foreground cursor-not-allowed opacity-50"
           : "hover:bg-muted/50 cursor-grab transition-colors active:cursor-grabbing",
       )}
     >
-      <div className={cn("font-medium", inToday && "line-through")}>
+      <div className={cn("font-medium", isDisabled && "line-through")}>
         {task.title}
       </div>
       {task.description && (
@@ -63,14 +66,23 @@ export const AddTasksPanel = ({ onClose }: AddTasksPanelProps) => {
   );
 
   const inboxTasks = getInboxTasks().filter((t) => !t.completed);
-  const dailyTasks = getDailyTasks().filter((t) => !t.completed);
+  const dailyTasks = getDailyTasks(); // Show all daily tasks, including completed ones
 
   // Count tasks IN Today view for each section
   const inboxInTodayCount = inboxTasks.filter((t) => isInToday(t.id)).length;
   const dailyInTodayCount = dailyTasks.filter((t) => isInToday(t.id)).length;
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
-    if (isInToday(taskId)) {
+    // Prevent dragging if task is in Today view or is a completed daily task
+    const today = new Date().toISOString().split("T")[0];
+    const allTasks = [...inboxTasks, ...dailyTasks];
+    projects.forEach((p) => {
+      allTasks.push(...getProjectTasks(p.id).filter((t) => !t.completed));
+    });
+    const task = allTasks.find((t) => t.id === taskId);
+    const isCompletedToday = task?.isDaily && task?.completionHistory?.[today] === true;
+
+    if (isInToday(taskId) || isCompletedToday) {
       e.preventDefault();
       return;
     }

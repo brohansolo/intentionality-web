@@ -7,11 +7,13 @@ import {
   GripVertical,
   Palette,
   Plus,
+  Settings,
   Tag,
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
 
+import { SettingsDialog } from "@/components/settings-dialog";
 import { Button } from "@/components/ui/button";
 import { useTasks } from "@/hooks/use-tasks";
 import { cn } from "@/lib/utils";
@@ -48,6 +50,7 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
   const [newGlobalTag, setNewGlobalTag] = useState("");
   const [showAddGlobalTag, setShowAddGlobalTag] = useState(false);
   const [colorPickerTag, setColorPickerTag] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Preset colors for quick selection
   const presetColors = [
@@ -603,6 +606,27 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
           Archived
         </button>
       </div>
+
+      {/* Settings button */}
+      <div
+        style={{
+          paddingTop: "16px",
+          borderTop: "1px solid var(--border, #e5e7eb)",
+          marginTop: "16px",
+          flexShrink: 0,
+        }}
+      >
+        <button
+          onClick={() => setShowSettings(true)}
+          className="hover:bg-muted flex w-full items-center gap-2 rounded-md p-2 transition-colors"
+        >
+          <Settings className="h-4 w-4" />
+          <span className="text-sm">Settings</span>
+        </button>
+      </div>
+
+      {/* Settings Dialog */}
+      <SettingsDialog open={showSettings} onOpenChange={setShowSettings} />
     </div>
   );
 };

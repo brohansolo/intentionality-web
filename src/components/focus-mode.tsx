@@ -8,13 +8,13 @@ import { AddTaskModal } from "@/components/add-task-modal";
 import { CompletionAnimation } from "@/components/completion-animation";
 import { SubtaskList } from "@/components/subtask-list";
 import { Button } from "@/components/ui/button";
-import { useTasks } from "@/hooks/use-tasks";
+import { useTasksAdapter as useTasks } from "@/hooks/use-tasks-adapter";
 import { Task } from "@/lib/types";
 
 interface FocusModeProps {
   task: Task;
   onClose: () => void;
-  onUpdate: (id: string, updates: Partial<Task>) => void;
+  onUpdate: (id: string, updates: Partial<Task>) => void | Promise<void>;
 }
 
 export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
@@ -371,8 +371,8 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
     pausedTimeRef.current = null;
   };
 
-  const handleSave = () => {
-    onUpdate(task.id, {
+  const handleSave = async () => {
+    await onUpdate(task.id, {
       title: title.trim() || task.title,
       description: description.trim() || undefined,
       timePeriod: timerMinutes,
@@ -381,9 +381,9 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
     onClose();
   };
 
-  const handleDone = () => {
+  const handleDone = async () => {
     // Save title, description and timer, then mark as complete
-    onUpdate(task.id, {
+    await onUpdate(task.id, {
       title: title.trim() || task.title,
       description: description.trim() || undefined,
       timePeriod: timerMinutes,
@@ -869,8 +869,8 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
           </div>
           <SubtaskList
             subtasks={subtasks}
-            onAddSubtask={(title) => {
-              const subtaskId = addTask(
+            onAddSubtask={async (title) => {
+              const subtaskId = await addTask(
                 title,
                 task.projectId,
                 undefined,
@@ -879,7 +879,7 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
                 "",
               );
               // Update the newly created subtask to have the parent task ID
-              updateTask(subtaskId, {
+              await updateTask(subtaskId, {
                 parentTaskId: task.id,
                 order: subtasks.length,
               });

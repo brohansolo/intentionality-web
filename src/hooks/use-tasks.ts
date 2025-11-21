@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 import { storage } from "@/lib/storage";
-import { Project, Tag, Task, TodayTask } from "@/lib/types";
+import { Project, ProjectTag, Tag, Task, TaskTag, TodayTask } from "@/lib/types";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   addProject as addProjectAction,
@@ -12,6 +12,13 @@ import {
   setProjects,
   updateProject as updateProjectAction,
 } from "@/store/slices/projectsSlice";
+import {
+  addProjectTag,
+  removeProjectTag,
+  removeProjectTagsByProject,
+  removeProjectTagsByTag,
+  setProjectTags,
+} from "@/store/slices/projectTagsSlice";
 import {
   addTag as addTagAction,
   deleteTag as deleteTagAction,
@@ -27,6 +34,13 @@ import {
   updateTask as updateTaskAction,
 } from "@/store/slices/tasksSlice";
 import {
+  addTaskTag,
+  removeTaskTag,
+  removeTaskTagsByTag,
+  removeTaskTagsByTask,
+  setTaskTags,
+} from "@/store/slices/taskTagsSlice";
+import {
   addToToday as addToTodayAction,
   clearToday as clearTodayAction,
   removeFromToday as removeFromTodayAction,
@@ -40,20 +54,32 @@ export const useTasks = () => {
   const projects = useAppSelector((state) => state.projects.items);
   const todayTasks = useAppSelector((state) => state.todayTasks.items);
   const tags = useAppSelector((state) => state.tags.items);
+  const taskTags = useAppSelector((state) => state.taskTags.items);
+  const projectTags = useAppSelector((state) => state.projectTags.items);
 
   useEffect(() => {
     const loadData = async () => {
-      const [loadedTasks, loadedProjects, loadedTodayTasks, loadedTags] =
-        await Promise.all([
-          storage.getTasks(),
-          storage.getProjects(),
-          storage.getTodayTasks(),
-          storage.getTags(),
-        ]);
+      const [
+        loadedTasks,
+        loadedProjects,
+        loadedTodayTasks,
+        loadedTags,
+        loadedTaskTags,
+        loadedProjectTags,
+      ] = await Promise.all([
+        storage.getTasks(),
+        storage.getProjects(),
+        storage.getTodayTasks(),
+        storage.getTags(),
+        storage.getTaskTags(),
+        storage.getProjectTags(),
+      ]);
       dispatch(setTasks(loadedTasks));
       dispatch(setProjects(loadedProjects));
       dispatch(setTodayTasks(loadedTodayTasks));
       dispatch(setTags(loadedTags));
+      dispatch(setTaskTags(loadedTaskTags));
+      dispatch(setProjectTags(loadedProjectTags));
     };
 
     loadData();
@@ -68,6 +94,10 @@ export const useTasks = () => {
         dispatch(setTodayTasks(JSON.parse(e.newValue)));
       } else if (e.key === "tags" && e.newValue) {
         dispatch(setTags(JSON.parse(e.newValue)));
+      } else if (e.key === "task_tags" && e.newValue) {
+        dispatch(setTaskTags(JSON.parse(e.newValue)));
+      } else if (e.key === "project_tags" && e.newValue) {
+        dispatch(setProjectTags(JSON.parse(e.newValue)));
       }
     };
 
@@ -75,14 +105,14 @@ export const useTasks = () => {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, [dispatch]);
 
-  const addTask = (
+  const addTask = async (
     title: string,
     projectId?: string,
     dueDate?: string,
     isDaily: boolean = false,
     timePeriod?: number,
     description?: string,
-    tags?: string[],
+    tagIds?: string[],
     providedId?: string,
   ) => {
     const maxOrder =
@@ -97,7 +127,6 @@ export const useTasks = () => {
       order: maxOrder + 1,
       isDaily,
       timePeriod,
-      tags,
       createdAt: new Date().toISOString(),
     };
     console.log("Adding task:", newTask);
@@ -106,6 +135,21 @@ export const useTasks = () => {
     const updatedTasks = [...tasks, newTask];
     console.log("Updated tasks:", updatedTasks);
     storage.saveTasks(updatedTasks);
+
+    // Add tag relationships if provided
+    if (tagIds && tagIds.length > 0) {
+      for (const tagId of tagIds) {
+        await storage.addTagToTask(newTask.id, tagId);
+        dispatch(
+          addTaskTag({
+            taskId: newTask.id,
+            tagId,
+            createdAt: new Date().toISOString(),
+          }),
+        );
+      }
+    }
+
     return newTask.id;
   };
 
@@ -119,6 +163,7 @@ export const useTasks = () => {
 
   const deleteTask = (id: string) => {
     dispatch(deleteTaskAction(id));
+    dispatch(removeTaskTagsByTask(id));
     storage.saveTasks(tasks.filter((task) => task.id !== id));
   };
 
@@ -157,6 +202,7 @@ export const useTasks = () => {
   const deleteProject = (id: string) => {
     dispatch(deleteTasksByProject(id));
     dispatch(deleteProjectAction(id));
+    dispatch(removeProjectTagsByProject(id));
     storage.saveTasks(tasks.filter((task) => task.projectId !== id));
     storage.saveProjects(projects.filter((project) => project.id !== id));
   };
@@ -297,32 +343,9 @@ export const useTasks = () => {
 
   const deleteTag = (id: string) => {
     dispatch(deleteTagAction(id));
+    dispatch(removeTaskTagsByTag(id));
+    dispatch(removeProjectTagsByTag(id));
     storage.saveTags(tags.filter((tag) => tag.id !== id));
-
-    // Remove tag from all tasks
-    const updatedTasks = tasks.map((task) => ({
-      ...task,
-      tags: task.tags?.filter((tagId) => tagId !== id) || [],
-    }));
-    updatedTasks.forEach((task) => {
-      dispatch(updateTaskAction({ id: task.id, updates: { tags: task.tags } }));
-    });
-    storage.saveTasks(updatedTasks);
-
-    // Remove tag from all projects
-    const updatedProjects = projects.map((project) => ({
-      ...project,
-      tags: project.tags?.filter((tagId) => tagId !== id) || [],
-    }));
-    updatedProjects.forEach((project) => {
-      dispatch(
-        updateProjectAction({
-          id: project.id,
-          updates: { tags: project.tags },
-        }),
-      );
-    });
-    storage.saveProjects(updatedProjects);
   };
 
   const getOrCreateTag = (name: string, color?: string) => {
@@ -335,10 +358,51 @@ export const useTasks = () => {
     return addTag(name, color);
   };
 
+  // Tag relationship helpers
+  const getTaskTags = (taskId: string): string[] => {
+    return taskTags.filter((tt) => tt.taskId === taskId).map((tt) => tt.tagId);
+  };
+
+  const getProjectTags = (projectId: string): string[] => {
+    return projectTags
+      .filter((pt) => pt.projectId === projectId)
+      .map((pt) => pt.tagId);
+  };
+
+  const addTagToTask = async (taskId: string, tagId: string) => {
+    await storage.addTagToTask(taskId, tagId);
+    dispatch(
+      addTaskTag({ taskId, tagId, createdAt: new Date().toISOString() }),
+    );
+  };
+
+  const removeTagFromTask = async (taskId: string, tagId: string) => {
+    await storage.removeTagFromTask(taskId, tagId);
+    dispatch(removeTaskTag({ taskId, tagId }));
+  };
+
+  const addTagToProject = async (projectId: string, tagId: string) => {
+    await storage.addTagToProject(projectId, tagId);
+    dispatch(
+      addProjectTag({
+        projectId,
+        tagId,
+        createdAt: new Date().toISOString(),
+      }),
+    );
+  };
+
+  const removeTagFromProject = async (projectId: string, tagId: string) => {
+    await storage.removeTagFromProject(projectId, tagId);
+    dispatch(removeProjectTag({ projectId, tagId }));
+  };
+
   return {
     tasks,
     projects: getOrderedProjects(),
     tags,
+    taskTags,
+    projectTags,
     addTask,
     updateTask,
     deleteTask,
@@ -364,5 +428,11 @@ export const useTasks = () => {
     updateTag,
     deleteTag,
     getOrCreateTag,
+    getTaskTags,
+    getProjectTags,
+    addTagToTask,
+    removeTagFromTask,
+    addTagToProject,
+    removeTagFromProject,
   };
 };

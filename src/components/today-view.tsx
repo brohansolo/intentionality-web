@@ -29,6 +29,8 @@ export const TodayView = ({
     addToToday,
     isInToday,
     clearToday,
+    markDailyTaskComplete,
+    markDailyTaskIncomplete,
   } = useTasks();
 
   const [isAddTasksPanelOpen, setIsAddTasksPanelOpen] = useState(false);
@@ -37,7 +39,16 @@ export const TodayView = ({
   const tasks = getTodayTasksList();
 
   const handleToggle = (id: string, completed: boolean) => {
-    updateTask(id, { completed });
+    const task = tasks.find((t) => t.id === id);
+    if (task?.isDaily) {
+      if (completed) {
+        markDailyTaskComplete(id);
+      } else {
+        markDailyTaskIncomplete(id);
+      }
+    } else {
+      updateTask(id, { completed });
+    }
   };
 
   const handleDelete = (id: string) => {

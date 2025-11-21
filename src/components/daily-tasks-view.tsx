@@ -1,5 +1,8 @@
 "use client";
 
+import { GripVertical } from "lucide-react";
+import { useState } from "react";
+
 import { TaskItem } from "@/components/task-item";
 import { useTasks } from "@/hooks/use-tasks";
 import { Task } from "@/lib/types";
@@ -20,9 +23,39 @@ export const DailyTasksView = ({
     markDailyTaskComplete,
     markDailyTaskIncomplete,
     projects,
+    reorderTasks,
   } = useTasks();
 
-  const dailyTasks = getDailyTasks().filter((task) => !task.parentTaskId);
+  const [draggedTask, setDraggedTask] = useState<string | null>(null);
+
+  const dailyTasks = getDailyTasks()
+    .filter((task) => !task.parentTaskId)
+    .sort((a, b) => a.order - b.order);
+
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTask(taskId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number, taskList: Task[]) => {
+    e.preventDefault();
+    if (!draggedTask) return;
+
+    const draggedIndex = taskList.findIndex((t) => t.id === draggedTask);
+    if (draggedIndex === -1 || draggedIndex === dropIndex) return;
+
+    const reorderedTasks = [...taskList];
+    const [draggedItem] = reorderedTasks.splice(draggedIndex, 1);
+    reorderedTasks.splice(dropIndex, 0, draggedItem);
+
+    reorderTasks(reorderedTasks);
+    setDraggedTask(null);
+  };
 
   const handleToggle = (id: string, completed: boolean) => {
     if (completed) {
@@ -81,17 +114,30 @@ export const DailyTasksView = ({
                         General Daily Tasks
                       </h3>
                       <div className="space-y-2">
-                        {generalTasks.map((task) => (
-                          <TaskItem
+                        {generalTasks.map((task, index) => (
+                          <div
                             key={task.id}
-                            task={task}
-                            onToggle={handleToggle}
-                            onDelete={deleteTask}
-                            onUpdate={updateTask}
-                            onClick={onTaskClick}
-                            onDoubleClick={onTaskDoubleClick}
-                            isDaily={true}
-                          />
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, task.id)}
+                            onDragOver={handleDragOver}
+                            onDrop={(e) => handleDrop(e, index, generalTasks)}
+                            className="group relative"
+                          >
+                            <div className="absolute top-1/2 left-1 z-10 -translate-y-1/2 cursor-grab opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing">
+                              <GripVertical className="text-muted-foreground h-4 w-4" />
+                            </div>
+                            <div className="pl-6">
+                              <TaskItem
+                                task={task}
+                                onToggle={handleToggle}
+                                onDelete={deleteTask}
+                                onUpdate={updateTask}
+                                onClick={onTaskClick}
+                                onDoubleClick={onTaskDoubleClick}
+                                isDaily={true}
+                              />
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -104,17 +150,30 @@ export const DailyTasksView = ({
                         {project.name} - Daily Tasks
                       </h3>
                       <div className="space-y-2">
-                        {tasks.map((task) => (
-                          <TaskItem
+                        {tasks.map((task, index) => (
+                          <div
                             key={task.id}
-                            task={task}
-                            onToggle={handleToggle}
-                            onDelete={deleteTask}
-                            onUpdate={updateTask}
-                            onClick={onTaskClick}
-                            onDoubleClick={onTaskDoubleClick}
-                            isDaily={true}
-                          />
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, task.id)}
+                            onDragOver={handleDragOver}
+                            onDrop={(e) => handleDrop(e, index, tasks)}
+                            className="group relative"
+                          >
+                            <div className="absolute top-1/2 left-1 z-10 -translate-y-1/2 cursor-grab opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing">
+                              <GripVertical className="text-muted-foreground h-4 w-4" />
+                            </div>
+                            <div className="pl-6">
+                              <TaskItem
+                                task={task}
+                                onToggle={handleToggle}
+                                onDelete={deleteTask}
+                                onUpdate={updateTask}
+                                onClick={onTaskClick}
+                                onDoubleClick={onTaskDoubleClick}
+                                isDaily={true}
+                              />
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </div>

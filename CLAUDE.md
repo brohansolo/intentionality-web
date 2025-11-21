@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a task management application ("Intentionality") built with Next.js 15 that supports **dual storage modes**:
 - **Local mode** (default): Client-side localStorage persistence
-- **Remote mode**: PostgreSQL database persistence via API routes
+- **Remote mode**: PostgreSQL database persistence via PostgREST/Supabase
 
 The app supports multiple views (Inbox, Next Steps, Daily Tasks, Projects) with drag-and-drop task organization.
 
@@ -57,13 +57,20 @@ The app uses a centralized hook pattern with a storage abstraction layer:
 
 - **[src/lib/storage.ts](src/lib/storage.ts)**: Storage abstraction layer
   - Checks `NEXT_PUBLIC_STORAGE_TYPE` environment variable
-  - Routes to either local storage or database storage
-  - Provides unified async interface: `getTasks()`, `saveTasks()`, `getProjects()`, `saveProjects()`
+  - Routes to either local storage, database storage, or PostgREST storage
+  - Provides unified async interface: `getTasks()`, `addTask()`, `updateTask()`, `deleteTask()`, etc.
+  - Gracefully handles missing endpoints in remote mode (returns empty arrays)
 
-- **[src/lib/db-storage.ts](src/lib/db-storage.ts)**: Database storage adapter
+- **[src/lib/db-storage.ts](src/lib/db-storage.ts)**: Database storage adapter (legacy)
   - Makes fetch calls to API routes for remote storage
-  - Endpoints: `/api/tasks`, `/api/projects` with CRUD operations
-  - **Note**: API routes need to be implemented to complete remote mode
+  - **Note**: Being replaced by PostgREST integration
+
+- **[src/lib/postgrest-storage.ts](src/lib/postgrest-storage.ts)**: PostgREST/Supabase storage adapter
+  - Direct integration with Supabase PostgREST API
+  - Handles authentication via `apikey` and `Authorization` headers
+  - Converts between camelCase (TypeScript) and snake_case (database)
+  - **Currently implemented**: Full CRUD for tasks (GET, POST, PATCH, DELETE, bulk reorder)
+  - **Not yet implemented**: Projects, tags, today_tasks endpoints
 
 ### View System
 
@@ -113,7 +120,9 @@ PostgreSQL migrations are in [migrations/](migrations/):
 4. **Path aliases**: Use `@/` prefix for imports (e.g., `@/components`, `@/lib`)
 5. **Environment variables**: Managed via `@t3-oss/env-nextjs` in [src/env.mjs](src/env.mjs) with Zod validation
    - `NEXT_PUBLIC_STORAGE_TYPE`: `'local'` or `'remote'`
-   - `DATABASE_URL`: PostgreSQL connection string (required for remote mode)
+   - `NEXT_PUBLIC_SUPABASE_URL`: Supabase project URL (required for remote mode)
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase anon/public API key (required for remote mode)
+   - `DATABASE_URL`: PostgreSQL connection string (optional, for direct database access)
 
 ## Technology Stack
 
@@ -127,23 +136,86 @@ PostgreSQL migrations are in [migrations/](migrations/):
 
 ## Important Notes
 
-- **Dual storage architecture**: App supports both local (localStorage) and remote (PostgreSQL) storage modes
+- **Dual storage architecture**: App supports both local (localStorage) and remote (PostgreSQL via PostgREST) storage modes
   - Switch via `NEXT_PUBLIC_STORAGE_TYPE` in `.env`
-  - **Remote mode incomplete**: API routes in `src/app/api/tasks/` and `src/app/api/projects/` need to be implemented
+  - **Remote mode status**: Tasks CRUD fully implemented via PostgREST. Projects, tags, and today_tasks not yet implemented.
 - **Multi-tab behavior**: The storage event listener in `use-tasks.ts` syncs changes across tabs (local mode only)
 - **No authentication**: All Stripe, NextAuth references are legacy from the original template
 - **Locale routing**: All pages are under `[locale]` dynamic route for i18n support
 - **Git hooks**: Husky runs lint-staged on pre-commit (ESLint + Prettier on staged files)
 
-## Implementing Remote Storage (TODO)
+## PostgREST/Supabase Integration (Current Implementation)
 
-To complete remote storage support, create API routes:
+### Completed Features
 
-1. **`src/app/api/tasks/route.ts`**: GET (list), POST (create)
-2. **`src/app/api/tasks/[id]/route.ts`**: PATCH (update), DELETE
-3. **`src/app/api/tasks/reorder/route.ts`**: POST (bulk update order)
-4. **`src/app/api/projects/route.ts`**: GET (list), POST (create)
-5. **`src/app/api/projects/[id]/route.ts`**: PATCH (update), DELETE
-6. **`src/app/api/projects/reorder/route.ts`**: POST (bulk update order)
+**Tasks Integration** - Fully functional via [src/lib/postgrest-storage.ts](src/lib/postgrest-storage.ts):
+- ✅ `getTasks()` - Fetch all tasks from `tasks` table
+- ✅ `addTask()` - Create new task with POST
+- ✅ `updateTask()` - Update task fields with PATCH
+- ✅ `deleteTask()` - Delete task with DELETE
+- ✅ `reorderTasks()` - Bulk update task order values
+- ✅ Authentication headers (`apikey`, `Authorization: Bearer`)
+- ✅ Field mapping (camelCase ↔ snake_case conversion)
+- ✅ Error handling and graceful degradation
 
-Use `@neondatabase/serverless` with `DATABASE_URL` from env to query the PostgreSQL database.
+**Remote Hook** - [src/hooks/use-tasks-remote.ts](src/hooks/use-tasks-remote.ts):
+- ✅ Separate implementation for remote storage mode
+- ✅ Uses PostgREST storage for all task operations
+- ✅ Async/await with proper error handling
+- ✅ Loading states and user feedback
+- ✅ Mock implementations for unimplemented endpoints (returns empty arrays)
+
+**Hook Adapter** - [src/hooks/use-tasks-adapter.ts](src/hooks/use-tasks-adapter.ts):
+- ✅ Automatically switches between local and remote hooks based on `NEXT_PUBLIC_STORAGE_TYPE`
+- ✅ Drop-in replacement for `useTasks`
+
+**Components Updated**:
+- ✅ [src/components/add-task-modal.tsx](src/components/add-task-modal.tsx) - Uses adapter hook with async task creation
+
+### Environment Setup
+
+Add to your `.env` file:
+```bash
+NEXT_PUBLIC_STORAGE_TYPE='remote'
+NEXT_PUBLIC_SUPABASE_URL='https://your-project.supabase.co'
+NEXT_PUBLIC_SUPABASE_ANON_KEY='your-anon-key-here'
+```
+
+### Remaining Work (TODO)
+
+To complete the PostgREST integration, implement the following in [src/lib/postgrest-storage.ts](src/lib/postgrest-storage.ts):
+
+1. **Projects Integration**:
+   - `getProjects()` - GET from `projects` table
+   - `addProject()` - POST new project
+   - `updateProject()` - PATCH project fields
+   - `deleteProject()` - DELETE project
+   - `reorderProjects()` - Bulk update project order
+
+2. **Tags Integration**:
+   - `getTags()` - GET from `tags` table
+   - `addTag()` - POST new tag
+   - `updateTag()` - PATCH tag fields
+   - `deleteTag()` - DELETE tag
+
+3. **Tag Relationships**:
+   - `getTaskTags()` - GET from `task_tags` junction table
+   - `addTagToTask()` - POST to `task_tags`
+   - `removeTagFromTask()` - DELETE from `task_tags`
+   - `getProjectTags()` - GET from `project_tags` junction table
+   - `addTagToProject()` - POST to `project_tags`
+   - `removeTagFromProject()` - DELETE from `project_tags`
+
+4. **Today Tasks Integration**:
+   - `getTodayTasks()` - GET from `today_tasks` table
+   - `addToToday()` - POST new today task
+   - `removeFromToday()` - DELETE from today tasks
+   - `reorderTodayTasks()` - Bulk update today task order
+
+5. **Update Components**:
+   - Switch remaining components from `useTasks` to `useTasksAdapter`
+   - Update `use-tasks-remote.ts` to use real endpoints instead of mocks
+
+### Migration from API Routes (Legacy)
+
+The original architecture used Next.js API routes (`src/app/api/`), but this has been replaced with direct PostgREST integration for better performance and simpler architecture. The API route pattern is no longer needed.
