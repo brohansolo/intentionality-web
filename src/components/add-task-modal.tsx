@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useTasksAdapter as useTasks } from "@/hooks/use-tasks-adapter";
+import { useTasks } from "@/hooks/use-tasks";
 
 interface AddTaskModalProps {
   isOpen: boolean;
@@ -122,7 +122,9 @@ export const AddTaskModal = ({
 
       const taskId = await addTask(
         newTaskTitle.trim(),
-        newTaskProject && newTaskProject !== "none" ? newTaskProject : undefined,
+        newTaskProject && newTaskProject !== "none"
+          ? newTaskProject
+          : undefined,
         undefined, // no due date
         isDailyTask, // is daily (from state)
         timePeriod ? Number(timePeriod) : undefined, // time period

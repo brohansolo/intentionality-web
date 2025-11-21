@@ -12,6 +12,10 @@ Replace the current dual-mode architecture (local-only OR remote-only) with a un
 
 ---
 
+## Procedure
+
+Mark tasks as done as you complete them and commit at regular/logical points to save progress.
+
 ## Phase 1: Foundation - Create Core Types & Interfaces
 
 ### Step 1.1: Create sync types file

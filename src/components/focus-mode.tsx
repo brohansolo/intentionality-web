@@ -8,7 +8,7 @@ import { AddTaskModal } from "@/components/add-task-modal";
 import { CompletionAnimation } from "@/components/completion-animation";
 import { SubtaskList } from "@/components/subtask-list";
 import { Button } from "@/components/ui/button";
-import { useTasksAdapter as useTasks } from "@/hooks/use-tasks-adapter";
+import { useTasks } from "@/hooks/use-tasks";
 import { Task } from "@/lib/types";
 
 interface FocusModeProps {

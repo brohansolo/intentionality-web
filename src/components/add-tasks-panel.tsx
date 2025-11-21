@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { useTasksAdapter as useTasks } from "@/hooks/use-tasks-adapter";
+import { useTasks } from "@/hooks/use-tasks";
 import { Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +25,8 @@ const DraggableTaskItem = ({
 }: DraggableTaskItemProps) => {
   const inToday = isInToday;
   const today = new Date().toISOString().split("T")[0];
-  const isCompletedToday = task.isDaily && task.completionHistory?.[today] === true;
+  const isCompletedToday =
+    task.isDaily && task.completionHistory?.[today] === true;
   const isDisabled = inToday || isCompletedToday;
 
   return (
@@ -80,7 +81,8 @@ export const AddTasksPanel = ({ onClose }: AddTasksPanelProps) => {
       allTasks.push(...getProjectTasks(p.id).filter((t) => !t.completed));
     });
     const task = allTasks.find((t) => t.id === taskId);
-    const isCompletedToday = task?.isDaily && task?.completionHistory?.[today] === true;
+    const isCompletedToday =
+      task?.isDaily && task?.completionHistory?.[today] === true;
 
     if (isInToday(taskId) || isCompletedToday) {
       e.preventDefault();

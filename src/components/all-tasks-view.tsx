@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight, Filter, X } from "lucide-react";
 import { useState } from "react";
 
 import { TaskItem } from "@/components/task-item";
-import { useTasksAdapter as useTasks } from "@/hooks/use-tasks-adapter";
+import { useTasks } from "@/hooks/use-tasks";
 import { Task } from "@/lib/types";
 
 interface AllTasksViewProps {
