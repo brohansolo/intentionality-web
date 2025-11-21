@@ -431,11 +431,25 @@ export class RemoteStorageAdapter implements IStorageAdapter {
 
   async saveTodayTasks(todayTasks: TodayTask[]): Promise<void> {
     try {
-      // This is a stub - in a real implementation, you'd need to:
-      // 1. Delete all existing today_tasks
-      // 2. Insert new ones
-      // For now, just log a warning
-      console.warn("saveTodayTasks not fully implemented for remote storage");
+      // Step 1: Delete all existing today_tasks
+      await fetch(`${this.apiUrl}/rest/v1/today_tasks`, {
+        method: "DELETE",
+        headers: this.getHeaders(),
+      });
+
+      // Step 2: Insert new ones if there are any
+      if (todayTasks.length > 0) {
+        const dbTodayTasks = todayTasks.map((tt) => ({
+          task_id: tt.taskId,
+          order: tt.order,
+        }));
+
+        await fetch(`${this.apiUrl}/rest/v1/today_tasks`, {
+          method: "POST",
+          headers: this.getHeaders(true),
+          body: JSON.stringify(dbTodayTasks),
+        });
+      }
     } catch (error) {
       console.error("Failed to save today tasks:", error);
       throw error;

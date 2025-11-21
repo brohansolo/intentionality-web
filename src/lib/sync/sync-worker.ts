@@ -1,4 +1,4 @@
-import type { Project, Tag, Task } from "@/lib/types";
+import type { Project, Tag, Task, TodayTask } from "@/lib/types";
 
 import { LocalStorageAdapter } from "./local-storage-adapter";
 import { RemoteStorageAdapter } from "./remote-storage-adapter";
@@ -204,12 +204,32 @@ export class SyncWorker {
         break;
       }
 
-      // Today tasks operations (not yet implemented in remote adapter)
-      case OperationType.ADD_TODAY_TASK:
-      case OperationType.REMOVE_TODAY_TASK:
+      // Today tasks operations
+      case OperationType.ADD_TODAY_TASK: {
+        const { taskId, order } = payload as { taskId: string; order: number };
+        // For add, we need to fetch current today tasks, add the new one, and save all
+        const currentTodayTasks = await this.remoteAdapter.getTodayTasks();
+        const newTodayTask: TodayTask = { taskId, order };
+        await this.remoteAdapter.saveTodayTasks([
+          ...currentTodayTasks,
+          newTodayTask,
+        ]);
+        break;
+      }
+
+      case OperationType.REMOVE_TODAY_TASK: {
+        const { taskId } = payload as { taskId: string };
+        // For remove, we need to fetch current today tasks, filter out the one to remove, and save
+        const currentTodayTasks = await this.remoteAdapter.getTodayTasks();
+        await this.remoteAdapter.saveTodayTasks(
+          currentTodayTasks.filter((tt) => tt.taskId !== taskId),
+        );
+        break;
+      }
+
       case OperationType.REORDER_TODAY_TASKS:
-        console.warn(
-          `Operation type ${type} not yet implemented in remote adapter`,
+        await this.remoteAdapter.saveTodayTasks(
+          payload as Parameters<typeof this.remoteAdapter.saveTodayTasks>[0],
         );
         break;
 
