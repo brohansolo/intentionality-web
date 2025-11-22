@@ -264,12 +264,60 @@ export class StorageManager {
   }
 
   /**
+   * Add a task to today (local + queued for sync)
+   */
+  async addToToday(taskId: string, order: number): Promise<void> {
+    const currentTodayTasks = await this.localAdapter.getTodayTasks();
+    const newTodayTask: TodayTask = { taskId, order };
+    await this.localAdapter.saveTodayTasks([
+      ...currentTodayTasks,
+      newTodayTask,
+    ]);
+    if (this.enableRemoteSync) {
+      this.queue.enqueue(OperationType.ADD_TODAY_TASK, { taskId, order });
+    }
+  }
+
+  /**
+   * Remove a task from today (local + queued for sync)
+   */
+  async removeFromToday(taskId: string): Promise<void> {
+    const currentTodayTasks = await this.localAdapter.getTodayTasks();
+    await this.localAdapter.saveTodayTasks(
+      currentTodayTasks.filter((t) => t.taskId !== taskId),
+    );
+    if (this.enableRemoteSync) {
+      this.queue.enqueue(OperationType.REMOVE_TODAY_TASK, { taskId });
+    }
+  }
+
+  /**
+   * Reorder today's tasks (local + queued for sync)
+   */
+  async reorderTodayTasks(todayTasks: TodayTask[]): Promise<void> {
+    await this.localAdapter.saveTodayTasks(todayTasks);
+    if (this.enableRemoteSync) {
+      this.queue.enqueue(OperationType.REORDER_TODAY_TASKS, todayTasks);
+    }
+  }
+
+  /**
+   * Clear all today tasks (local + queued for sync)
+   */
+  async clearTodayTasks(): Promise<void> {
+    await this.localAdapter.saveTodayTasks([]);
+    if (this.enableRemoteSync) {
+      this.queue.enqueue(OperationType.REORDER_TODAY_TASKS, []);
+    }
+  }
+
+  /**
    * Save today's tasks (local + queued for sync)
+   * @deprecated Use addToToday, removeFromToday, reorderTodayTasks, or clearTodayTasks instead
    */
   async saveTodayTasks(todayTasks: TodayTask[]): Promise<void> {
     await this.localAdapter.saveTodayTasks(todayTasks);
     if (this.enableRemoteSync) {
-      // Note: Today tasks sync not yet implemented in remote adapter
       this.queue.enqueue(OperationType.REORDER_TODAY_TASKS, todayTasks);
     }
   }

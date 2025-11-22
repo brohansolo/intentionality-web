@@ -91,12 +91,13 @@ export const useTasks = () => {
     const storageManager = getStorageManager();
 
     const loadData = async () => {
-      // First, pull latest data from remote (if remote sync is enabled)
-      // This ensures we have the latest server state before applying queued changes
-      await storageManager.pullFromRemote();
-
-      // Then, process any queued operations to push local changes to remote
+      // First, process any queued operations to push local changes to remote
+      // This ensures we don't lose any pending local changes
       await storageManager.syncNow();
+
+      // Then, pull latest data from remote (if remote sync is enabled)
+      // This ensures we have the latest server state after our changes are synced
+      await storageManager.pullFromRemote();
 
       // Finally, load all data from localStorage (which now has remote data + queued changes applied)
       const [
@@ -325,14 +326,12 @@ export const useTasks = () => {
     };
 
     dispatch(addToTodayAction(newTodayTask));
-    await getStorageManager().saveTodayTasks([...todayTasks, newTodayTask]);
+    await getStorageManager().addToToday(taskId, maxOrder + 1);
   };
 
   const removeFromToday = async (taskId: string) => {
     dispatch(removeFromTodayAction(taskId));
-    await getStorageManager().saveTodayTasks(
-      todayTasks.filter((t) => t.taskId !== taskId),
-    );
+    await getStorageManager().removeFromToday(taskId);
   };
 
   const reorderTodayTasks = async (reorderedTasks: TodayTask[]) => {
@@ -341,7 +340,7 @@ export const useTasks = () => {
       order: index,
     }));
     dispatch(reorderTodayTasksAction(reorderedWithOrder));
-    await getStorageManager().saveTodayTasks(reorderedWithOrder);
+    await getStorageManager().reorderTodayTasks(reorderedWithOrder);
   };
 
   const getTodayTasksList = () => {
@@ -357,7 +356,7 @@ export const useTasks = () => {
 
   const clearToday = async () => {
     dispatch(clearTodayAction());
-    await getStorageManager().saveTodayTasks([]);
+    await getStorageManager().clearTodayTasks();
   };
 
   const addTag = async (name: string, color?: string) => {
