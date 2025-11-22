@@ -266,13 +266,13 @@ export class StorageManager {
   /**
    * Add a task to today (local + queued for sync)
    */
-  async addToToday(taskId: string, order: number): Promise<void> {
-    const currentTodayTasks = await this.localAdapter.getTodayTasks();
-    const newTodayTask: TodayTask = { taskId, order };
-    await this.localAdapter.saveTodayTasks([
-      ...currentTodayTasks,
-      newTodayTask,
-    ]);
+  async addToToday(
+    taskId: string,
+    order: number,
+    updatedTodayTasks: TodayTask[],
+  ): Promise<void> {
+    // Save the full updated array to avoid race conditions with storage events
+    await this.localAdapter.saveTodayTasks(updatedTodayTasks);
     if (this.enableRemoteSync) {
       this.queue.enqueue(OperationType.ADD_TODAY_TASK, { taskId, order });
     }
@@ -281,11 +281,12 @@ export class StorageManager {
   /**
    * Remove a task from today (local + queued for sync)
    */
-  async removeFromToday(taskId: string): Promise<void> {
-    const currentTodayTasks = await this.localAdapter.getTodayTasks();
-    await this.localAdapter.saveTodayTasks(
-      currentTodayTasks.filter((t) => t.taskId !== taskId),
-    );
+  async removeFromToday(
+    taskId: string,
+    updatedTodayTasks: TodayTask[],
+  ): Promise<void> {
+    // Save the full updated array to avoid race conditions with storage events
+    await this.localAdapter.saveTodayTasks(updatedTodayTasks);
     if (this.enableRemoteSync) {
       this.queue.enqueue(OperationType.REMOVE_TODAY_TASK, { taskId });
     }

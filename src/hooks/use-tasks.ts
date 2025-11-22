@@ -325,13 +325,19 @@ export const useTasks = () => {
       order: maxOrder + 1,
     };
 
+    const updatedTodayTasks = [...todayTasks, newTodayTask];
     dispatch(addToTodayAction(newTodayTask));
-    await getStorageManager().addToToday(taskId, maxOrder + 1);
+    await getStorageManager().addToToday(
+      taskId,
+      maxOrder + 1,
+      updatedTodayTasks,
+    );
   };
 
   const removeFromToday = async (taskId: string) => {
+    const updatedTodayTasks = todayTasks.filter((t) => t.taskId !== taskId);
     dispatch(removeFromTodayAction(taskId));
-    await getStorageManager().removeFromToday(taskId);
+    await getStorageManager().removeFromToday(taskId, updatedTodayTasks);
   };
 
   const reorderTodayTasks = async (reorderedTasks: TodayTask[]) => {
