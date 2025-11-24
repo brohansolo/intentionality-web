@@ -2,8 +2,7 @@ import { env } from "@/env.mjs";
 
 export const siteConfig = {
   title: "Intentionality",
-  description:
-    "A simple task and project management app built with Next.js, TypeScript, and Tailwind CSS.",
+  description: "Task planning for the very busy, scattered, and inattentive.",
   keywords: [
     "Task Management",
     "Project Management",
