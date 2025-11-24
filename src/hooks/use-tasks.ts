@@ -481,8 +481,12 @@ export const useTasks = () => {
   };
 
   // Tag relationship helpers
-  const getTaskTags = (taskId: string): string[] => {
+  const getTaskTagIds = (taskId: string): string[] => {
     return taskTags.filter((tt) => tt.taskId === taskId).map((tt) => tt.tagId);
+  };
+
+  const getTaskTags = (taskId: string): TaskTag[] => {
+    return taskTags.filter((tt) => tt.taskId === taskId);
   };
 
   const getProjectTags = (projectId: string): string[] => {
@@ -567,6 +571,7 @@ export const useTasks = () => {
     updateTag,
     deleteTag,
     getOrCreateTag,
+    getTaskTagIds,
     getTaskTags,
     getProjectTags,
     addTagToTask,

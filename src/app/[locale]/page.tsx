@@ -23,7 +23,7 @@ const HomePage = () => {
   const [focusTask, setFocusTask] = useState<Task | null>(null);
   const [scratchpadOpen, setScratchpadOpen] = useState(false);
   const [addTaskModalOpen, setAddTaskModalOpen] = useState(false);
-  const { tasks, updateTask, projects } = useTasks();
+  const { tasks, updateTask } = useTasks();
 
   // Keep selectedTask in sync with the latest task data
   useEffect(() => {

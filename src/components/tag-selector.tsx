@@ -32,10 +32,10 @@ export const TagSelector = ({
     setShowDropdown(false);
   };
 
-  const handleCreateNewTag = (e: React.FormEvent) => {
+  const handleCreateNewTag = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newTagInput.trim()) {
-      const tag = getOrCreateTag(newTagInput.trim());
+      const tag = await getOrCreateTag(newTagInput.trim());
       onAddTag(tag.id);
       setNewTagInput("");
       setShowInput(false);

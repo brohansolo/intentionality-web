@@ -33,6 +33,9 @@ export const TaskDetailSidebar = ({
     addToToday,
     removeFromToday,
     isInToday,
+    getTaskTagIds: getTaskTags,
+    addTagToTask,
+    removeTagFromTask,
   } = useTasks();
   const [title, setTitle] = useState(task?.title || "");
   const [description, setDescription] = useState(task?.description || "");
@@ -121,16 +124,16 @@ export const TaskDetailSidebar = ({
 
   const handleAddTag = (tagId: string) => {
     if (!task) return;
-    const currentTags = task.tags || [];
-    if (!currentTags.includes(tagId)) {
-      onUpdate(task.id, { tags: [...currentTags, tagId] });
-    }
+    addTagToTask(task.id, tagId);
+    // const currentTags = task.tags || [];
+    // if (!currentTags.includes(tagId)) {
+    //   onUpdate(task.id, { tags: [...currentTags, tagId] });
+    // }
   };
 
   const handleRemoveTag = (tagId: string) => {
     if (!task) return;
-    const currentTags = task.tags || [];
-    onUpdate(task.id, { tags: currentTags.filter((id) => id !== tagId) });
+    removeTagFromTask(task.id, tagId);
   };
 
   const handleToggleDate = (date: string, completed: boolean) => {
@@ -336,7 +339,7 @@ export const TaskDetailSidebar = ({
           <div className="mb-6">
             <span className="mb-2 block text-sm font-medium">Tags</span>
             <TagSelector
-              currentTags={task.tags || []}
+              currentTags={getTaskTags(task.id)}
               onAddTag={handleAddTag}
               onRemoveTag={handleRemoveTag}
             />

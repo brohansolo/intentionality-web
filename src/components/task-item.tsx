@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
 import { useTasks } from "@/hooks/use-tasks";
-import { Task } from "@/lib/types";
+import { Tag, Task, TaskTag } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface TaskItemProps {
@@ -40,7 +40,7 @@ export const TaskItem = ({
   isDaily = false,
   hideDelete = false,
 }: TaskItemProps) => {
-  const { tags } = useTasks();
+  const { tags, getTaskTagIds } = useTasks();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -52,11 +52,10 @@ export const TaskItem = ({
     task.isDaily && task.completionHistory?.[today] === true;
   const displayCompleted = task.isDaily ? isCompletedToday : task.completed;
 
-  const getTagsForTask = () => {
-    if (!task?.tags) return [];
-    return task.tags
-      .map((tagId) => tags.find((t) => t.id === tagId))
-      .filter(Boolean);
+  const getTagsForTask = (): Tag[] => {
+    if (!task) return [];
+    const tts = getTaskTagIds(task.id);
+    return tags.filter((tag) => tts.includes(tag.id));
   };
 
   const playSound = () => {
@@ -239,7 +238,7 @@ export const TaskItem = ({
                   key={tag.id}
                   className="bg-primary/10 text-primary rounded px-2 py-1 text-xs font-medium"
                   style={
-                    tag.color
+                    tag
                       ? { backgroundColor: `${tag.color}20`, color: tag.color }
                       : undefined
                   }

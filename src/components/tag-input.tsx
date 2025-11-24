@@ -48,8 +48,8 @@ export const TagInput = ({ selectedTags, onTagsChange }: TagInputProps) => {
     }
   };
 
-  const handleConfirmCreateTag = () => {
-    const tag = getOrCreateTag(pendingTagName);
+  const handleConfirmCreateTag = async () => {
+    const tag = await getOrCreateTag(pendingTagName);
     if (!selectedTags.includes(tag.id)) {
       onTagsChange([...selectedTags, tag.id]);
     }

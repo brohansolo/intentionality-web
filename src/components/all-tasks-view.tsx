@@ -18,8 +18,16 @@ export const AllTasksView = ({
   onTaskClick,
   onTaskDoubleClick,
 }: AllTasksViewProps) => {
-  const { tasks, projects, tags, updateTask, deleteTask, reorderTasks } =
-    useTasks();
+  const {
+    tasks,
+    projects,
+    tags,
+    taskTags,
+    getTaskTagIds: getTaskTags,
+    updateTask,
+    deleteTask,
+    reorderTasks,
+  } = useTasks();
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>("order");
@@ -34,8 +42,9 @@ export const AllTasksView = ({
 
       // Filter by selected tags
       if (selectedTags.length > 0) {
-        if (!task.tags || task.tags.length === 0) return false;
-        return selectedTags.some((tagId) => task.tags?.includes(tagId));
+        const taskTagIds = getTaskTags(task.id);
+        if (taskTagIds.length === 0) return false;
+        return selectedTags.some((tagId) => taskTagIds.includes(tagId));
       }
 
       return true;

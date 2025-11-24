@@ -32,12 +32,15 @@ export const ProjectView = ({
 }: ProjectViewProps) => {
   const {
     projects,
+    projectTags,
     getProjectTasks,
     updateTask,
     deleteTask,
     deleteProject,
     updateProject,
     reorderTasks,
+    addTagToProject,
+    removeTagFromProject,
   } = useTasks();
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
@@ -140,17 +143,16 @@ export const ProjectView = ({
   };
 
   const handleAddProjectTag = (tagId: string) => {
-    const currentTags = project.tags || [];
-    if (!currentTags.includes(tagId)) {
-      updateProject(projectId, { tags: [...currentTags, tagId] });
+    const currentTagIds = projectTags
+      .filter((pt) => pt.projectId === projectId)
+      .map((pt) => pt.tagId);
+    if (!currentTagIds.includes(tagId)) {
+      addTagToProject(projectId, tagId);
     }
   };
 
   const handleRemoveProjectTag = (tagId: string) => {
-    const currentTags = project.tags || [];
-    updateProject(projectId, {
-      tags: currentTags.filter((id) => id !== tagId),
-    });
+    removeTagFromProject(projectId, tagId);
   };
 
   return (
@@ -311,7 +313,9 @@ export const ProjectView = ({
         <div className="mb-6 flex items-center gap-3">
           <div className="flex-shrink-0 text-sm font-medium">Tags:</div>
           <TagSelector
-            currentTags={project.tags || []}
+            currentTags={projectTags
+              .filter((pt) => pt.projectId === projectId)
+              .map((pt) => pt.tagId)}
             onAddTag={handleAddProjectTag}
             onRemoveTag={handleRemoveProjectTag}
           />
