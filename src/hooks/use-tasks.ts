@@ -57,6 +57,10 @@ import {
   setTodayTasks,
 } from "@/store/slices/todayTasksSlice";
 
+// Global flag to track if initial data load has been done
+// This ensures we only do the initial sync once across all hook instances
+let hasGloballyInitialized = false;
+
 export const useTasks = () => {
   const dispatch = useAppDispatch();
   const tasks = useAppSelector((state) => state.tasks.items);
@@ -66,40 +70,75 @@ export const useTasks = () => {
   const taskTags = useAppSelector((state) => state.taskTags.items);
   const projectTags = useAppSelector((state) => state.projectTags.items);
 
-  // Initialize StorageManager (lazy initialization in useEffect to avoid SSR issues)
-  const storageManagerRef = useRef<StorageManager | null>(null);
+  // Track if THIS hook instance has initialized
+  const hasInitializedRef = useRef(false);
 
-  // Helper to get or create storage manager
+  // Helper to get the global singleton storage manager
   const getStorageManager = () => {
-    if (!storageManagerRef.current) {
-      const enableRemoteSync = env.NEXT_PUBLIC_STORAGE_TYPE === "remote";
-      const remoteAdapter = enableRemoteSync
-        ? new RemoteStorageAdapter()
-        : undefined;
-      const syncIntervalMs = env.NEXT_PUBLIC_SYNC_INTERVAL_MS;
+    const enableRemoteSync = env.NEXT_PUBLIC_STORAGE_TYPE === "remote";
+    const remoteAdapter = enableRemoteSync
+      ? new RemoteStorageAdapter()
+      : undefined;
+    const syncIntervalMs = env.NEXT_PUBLIC_SYNC_INTERVAL_MS;
 
-      storageManagerRef.current = new StorageManager(
-        enableRemoteSync,
-        remoteAdapter,
-        syncIntervalMs,
-      );
-    }
-    return storageManagerRef.current;
+    return StorageManager.getInstance(
+      enableRemoteSync,
+      remoteAdapter,
+      syncIntervalMs,
+    );
   };
 
   useEffect(() => {
+    // Prevent re-initialization if this hook instance already initialized
+    if (hasInitializedRef.current) {
+      console.log(
+        "[useTasks] Skipping re-initialization, hook already initialized",
+      );
+      return;
+    }
+
+    hasInitializedRef.current = true;
+
+    // If already globally initialized, just load from localStorage
+    if (hasGloballyInitialized) {
+      console.log(
+        "[useTasks] Already globally initialized, loading from localStorage only",
+      );
+      const loadLocalData = async () => {
+        const [
+          loadedTasks,
+          loadedProjects,
+          loadedTodayTasks,
+          loadedTags,
+          loadedTaskTags,
+          loadedProjectTags,
+        ] = await Promise.all([
+          getStorageManager().getTasks(),
+          getStorageManager().getProjects(),
+          getStorageManager().getTodayTasks(),
+          getStorageManager().getTags(),
+          getStorageManager().getTaskTags(),
+          getStorageManager().getProjectTags(),
+        ]);
+        dispatch(setTasks(loadedTasks));
+        dispatch(setProjects(loadedProjects));
+        dispatch(setTodayTasks(loadedTodayTasks));
+        dispatch(setTags(loadedTags));
+        dispatch(setTaskTags(loadedTaskTags));
+        dispatch(setProjectTags(loadedProjectTags));
+      };
+      loadLocalData();
+      return;
+    }
+
+    // Mark as globally initialized before starting
+    hasGloballyInitialized = true;
     const storageManager = getStorageManager();
 
     const loadData = async () => {
-      // First, process any queued operations to push local changes to remote
-      // This ensures we don't lose any pending local changes
-      await storageManager.syncNow();
+      console.log("[useTasks] Starting initial data load (FIRST TIME ONLY)...");
 
-      // Then, pull latest data from remote (if remote sync is enabled)
-      // This ensures we have the latest server state after our changes are synced
-      await storageManager.pullFromRemote();
-
-      // Finally, load all data from localStorage (which now has remote data + queued changes applied)
+      // Step 1: Load data from localStorage immediately for instant UI
       const [
         loadedTasks,
         loadedProjects,
@@ -121,6 +160,41 @@ export const useTasks = () => {
       dispatch(setTags(loadedTags));
       dispatch(setTaskTags(loadedTaskTags));
       dispatch(setProjectTags(loadedProjectTags));
+
+      // Step 2: Sync all queued local changes to remote FIRST
+      // This ensures the remote has the most current state from local
+      console.log("[useTasks] Syncing local changes to remote...");
+      await storageManager.syncNow();
+
+      // Step 3: Pull latest data from remote (which now includes our local changes)
+      // This gets any changes made on other devices/tabs
+      console.log("[useTasks] Pulling latest data from remote...");
+      await storageManager.pullFromRemote();
+
+      // Step 4: Reload from localStorage to get the merged state
+      const [
+        updatedTasks,
+        updatedProjects,
+        updatedTodayTasks,
+        updatedTags,
+        updatedTaskTags,
+        updatedProjectTags,
+      ] = await Promise.all([
+        getStorageManager().getTasks(),
+        getStorageManager().getProjects(),
+        getStorageManager().getTodayTasks(),
+        getStorageManager().getTags(),
+        getStorageManager().getTaskTags(),
+        getStorageManager().getProjectTags(),
+      ]);
+      dispatch(setTasks(updatedTasks));
+      dispatch(setProjects(updatedProjects));
+      dispatch(setTodayTasks(updatedTodayTasks));
+      dispatch(setTags(updatedTags));
+      dispatch(setTaskTags(updatedTaskTags));
+      dispatch(setProjectTags(updatedProjectTags));
+
+      console.log("[useTasks] Initial data load complete");
     };
 
     loadData();
@@ -326,12 +400,19 @@ export const useTasks = () => {
     };
 
     const updatedTodayTasks = [...todayTasks, newTodayTask];
+    console.log("[addToToday] Adding task to today:", {
+      taskId,
+      order: maxOrder + 1,
+      currentTodayTasks: todayTasks,
+      updatedTodayTasks,
+    });
     dispatch(addToTodayAction(newTodayTask));
     await getStorageManager().addToToday(
       taskId,
       maxOrder + 1,
       updatedTodayTasks,
     );
+    console.log("[addToToday] Storage updated successfully");
   };
 
   const removeFromToday = async (taskId: string) => {

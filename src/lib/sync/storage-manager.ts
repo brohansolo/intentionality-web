@@ -13,6 +13,9 @@ import { SyncQueue } from "./sync-queue";
 import { SyncWorker } from "./sync-worker";
 import { OperationType } from "./types";
 
+// Global singleton instance to survive React remounts
+let globalStorageManagerInstance: StorageManager | null = null;
+
 /**
  * StorageManager orchestrates local-first storage with optional background sync.
  * - All writes go to localStorage immediately (instant UI feedback)
@@ -25,17 +28,43 @@ export class StorageManager {
   private worker?: SyncWorker;
   private enableRemoteSync: boolean;
 
-  constructor(
+  /**
+   * Get or create the global singleton instance
+   * This ensures we only have one StorageManager/SyncQueue across the entire app
+   */
+  static getInstance(
+    enableRemoteSync = false,
+    remoteAdapter?: RemoteStorageAdapter,
+    syncIntervalMs = 5000,
+  ): StorageManager {
+    if (!globalStorageManagerInstance) {
+      console.log("[StorageManager] Creating global singleton instance");
+      globalStorageManagerInstance = new StorageManager(
+        enableRemoteSync,
+        remoteAdapter,
+        syncIntervalMs,
+      );
+    } else {
+    }
+    return globalStorageManagerInstance;
+  }
+
+  private constructor(
     enableRemoteSync = false,
     remoteAdapter?: RemoteStorageAdapter,
     syncIntervalMs = 5000,
   ) {
+    console.log("[StorageManager] Constructor called, creating new instance");
     this.localAdapter = new LocalStorageAdapter();
     this.queue = new SyncQueue();
     this.enableRemoteSync = enableRemoteSync;
 
     // Initialize sync worker if remote sync is enabled
     if (enableRemoteSync && remoteAdapter) {
+      console.log(
+        "[StorageManager] Creating SyncWorker with interval:",
+        syncIntervalMs,
+      );
       this.worker = new SyncWorker(
         this.queue,
         remoteAdapter,

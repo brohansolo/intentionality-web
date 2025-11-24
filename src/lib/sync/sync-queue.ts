@@ -10,7 +10,11 @@ export class SyncQueue {
   private queue: QueuedOperation[] = [];
 
   constructor() {
+    console.log(
+      "[SyncQueue] Constructor called, loading queue from localStorage",
+    );
     this.loadQueue();
+    console.log("[SyncQueue] Loaded queue with", this.queue.length, "items");
   }
 
   /**
@@ -23,8 +27,10 @@ export class SyncQueue {
 
     try {
       const stored = window.localStorage.getItem(QUEUE_KEY);
+      console.log("[SyncQueue] Loading from localStorage, raw value:", stored);
       if (stored) {
         this.queue = JSON.parse(stored) as QueuedOperation[];
+        console.log("[SyncQueue] Parsed queue:", this.queue);
       }
     } catch (error) {
       console.error("Failed to load sync queue:", error);
@@ -41,7 +47,15 @@ export class SyncQueue {
     }
 
     try {
-      window.localStorage.setItem(QUEUE_KEY, JSON.stringify(this.queue));
+      const serialized = JSON.stringify(this.queue);
+      console.log("[SyncQueue] Persisting to localStorage:", {
+        queueLength: this.queue.length,
+        serialized,
+      });
+      window.localStorage.setItem(QUEUE_KEY, serialized);
+      // Verify it was saved
+      const verified = window.localStorage.getItem(QUEUE_KEY);
+      console.log("[SyncQueue] Verified persisted value:", verified);
     } catch (error) {
       console.error("Failed to persist sync queue:", error);
     }
@@ -68,6 +82,11 @@ export class SyncQueue {
     };
 
     this.queue.push(operation);
+    console.log("[SyncQueue] Enqueued operation:", {
+      type,
+      queueSize: this.queue.length,
+      pendingCount: this.getPendingCount(),
+    });
     this.persistQueue();
   }
 
@@ -75,10 +94,17 @@ export class SyncQueue {
    * Get the next batch of pending operations
    */
   getNextBatch(batchSize = 10): QueuedOperation[] {
-    return this.queue
-      .filter((op) => op.status === "pending")
+    // console.log("[SyncQueue] getNextBatch called, current queue:", {
+    //   totalItems: this.queue.length,
+    //   queue: this.queue,
+    // });
+    const pending = this.queue.filter((op) => op.status === "pending");
+    console.log("[SyncQueue] Pending operations:", pending.length);
+    const batch = pending
       .sort((a, b) => a.timestamp - b.timestamp)
       .slice(0, batchSize);
+    // console.log("[SyncQueue] Returning batch:", batch);
+    return batch;
   }
 
   /**
@@ -86,6 +112,11 @@ export class SyncQueue {
    */
   markComplete(operationId: string): void {
     this.queue = this.queue.filter((op) => op.id !== operationId);
+    console.log("[SyncQueue] Marked operation as complete:", {
+      operationId,
+      remainingInQueue: this.queue.length,
+      pendingCount: this.getPendingCount(),
+    });
     this.persistQueue();
   }
 

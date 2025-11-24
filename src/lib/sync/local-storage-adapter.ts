@@ -235,6 +235,13 @@ export class LocalStorageAdapter implements IStorageAdapter {
   }
 
   async saveTodayTasks(todayTasks: TodayTask[]): Promise<void> {
+    console.log("[LocalStorageAdapter] Saving today tasks:", todayTasks);
     this.writeToStorage(TODAY_KEY, todayTasks);
+    console.log(
+      "[LocalStorageAdapter] Saved to localStorage, key:",
+      TODAY_KEY,
+      "value:",
+      window.localStorage.getItem(TODAY_KEY),
+    );
   }
 }

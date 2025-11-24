@@ -432,21 +432,29 @@ export class RemoteStorageAdapter implements IStorageAdapter {
   async saveTodayTasks(todayTasks: TodayTask[]): Promise<void> {
     try {
       // Step 1: Delete all existing today_tasks
-      await fetch(`${this.apiUrl}/rest/v1/today_tasks`, {
+      console.log("Deleting today tasks...");
+      for await (const task of todayTasks) {
+      }
+      await fetch(`${this.apiUrl}/rest/v1/today_tasks?task_id=is.not_null`, {
         method: "DELETE",
         headers: this.getHeaders(),
       });
 
-      // Step 2: Insert new ones if there are any
+      // Step 2: Insert new ones if there are any (using upsert to handle conflicts)
       if (todayTasks.length > 0) {
         const dbTodayTasks = todayTasks.map((tt) => ({
           task_id: tt.taskId,
           order: tt.order,
         }));
 
+        // Use upsert to handle conflicts (merge duplicates)
+        console.log("Inserting today tasks...");
         await fetch(`${this.apiUrl}/rest/v1/today_tasks`, {
           method: "POST",
-          headers: this.getHeaders(true),
+          headers: {
+            ...this.getHeaders(true),
+            Prefer: "resolution=merge-duplicates",
+          },
           body: JSON.stringify(dbTodayTasks),
         });
       }

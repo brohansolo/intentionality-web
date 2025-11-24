@@ -63,11 +63,13 @@ export class SyncWorker {
   async processQueue(): Promise<void> {
     // Skip if already processing
     if (this.isProcessing) {
+      console.log("[SyncWorker] Already processing, skipping");
       return;
     }
 
     // Skip if offline
     if (typeof navigator !== "undefined" && !navigator.onLine) {
+      console.log("[SyncWorker] Offline, skipping sync");
       return;
     }
 
@@ -75,9 +77,19 @@ export class SyncWorker {
 
     try {
       const batch = this.queue.getNextBatch(10);
+      // console.log("[SyncWorker] Processing queue:", {
+      //   batchSize: batch.length,
+      //   pendingCount: this.queue.getPendingCount(),
+      // });
+
+      // if (batch.length === 0) {
+      //   console.log("[SyncWorker] No operations to process");
+      //   return;
+      // }
 
       for (const operation of batch) {
         try {
+          console.log("[SyncWorker] Executing operation:", operation.type);
           await this.executeOperation(operation);
           this.queue.markComplete(operation.id);
         } catch (error) {
@@ -210,10 +222,17 @@ export class SyncWorker {
         // For add, we need to fetch current today tasks, add the new one, and save all
         const currentTodayTasks = await this.remoteAdapter.getTodayTasks();
         const newTodayTask: TodayTask = { taskId, order };
+        console.log("[ADD_TODAY_TASK] Syncing to remote:", {
+          taskId,
+          order,
+          currentTodayTasks,
+          newArray: [...currentTodayTasks, newTodayTask],
+        });
         await this.remoteAdapter.saveTodayTasks([
           ...currentTodayTasks,
           newTodayTask,
         ]);
+        console.log("[ADD_TODAY_TASK] Successfully synced to remote");
         break;
       }
 
@@ -261,6 +280,15 @@ export class SyncWorker {
           this.remoteAdapter.getProjectTags(),
           this.remoteAdapter.getTodayTasks(),
         ]);
+
+      console.log("[pullFromRemote] Fetched from remote:", {
+        tasks: tasks.length,
+        projects: projects.length,
+        tags: tags.length,
+        taskTags: taskTags.length,
+        projectTags: projectTags.length,
+        todayTasks: todayTasks.length,
+      });
 
       // Save to local storage (overwrites local data with remote)
       // Use Promise.allSettled to continue even if some operations fail
