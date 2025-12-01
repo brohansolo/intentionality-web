@@ -9,6 +9,7 @@ import { CompletionAnimation } from "@/components/completion-animation";
 import { SubtaskList } from "@/components/subtask-list";
 import { Button } from "@/components/ui/button";
 import { useTasks } from "@/hooks/use-tasks";
+import { createShortcutHandler } from "@/lib/keyboard-utils";
 import { Task } from "@/lib/types";
 
 interface FocusModeProps {
@@ -102,60 +103,62 @@ export const FocusMode = ({ task, onClose, onUpdate }: FocusModeProps) => {
 
   // Keyboard shortcuts
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't handle keys if exit confirmation is showing
-      if (showFocusModeExitConfirmation) return;
+    // Don't handle keys if exit confirmation is showing
+    if (showFocusModeExitConfirmation) return;
 
-      // Check if we're in an input field
-      const target = e.target as HTMLElement;
-      const isInInput =
-        target.tagName === "INPUT" || target.tagName === "TEXTAREA";
+    const handleKeyDown = createShortcutHandler([
+      {
+        key: "a",
+        handler: () => {
+          if (!showAddTaskDialog) {
+            setShowAddTaskDialog(true);
+          }
+        },
+        allowInInput: false,
+        description: "Add new task",
+      },
+      {
+        key: "Escape",
+        handler: (e) => {
+          const target = e.target as HTMLElement;
+          const isInInput =
+            target.tagName === "INPUT" || target.tagName === "TEXTAREA";
 
-      // 'a' key to add task - only works when not in input field
-      if (
-        (e.key === "a" || e.key === "A") &&
-        !showAddTaskDialog &&
-        !isInInput
-      ) {
-        e.preventDefault();
-        setShowAddTaskDialog(true);
-      } else if (e.key === "Escape" && !showAddTaskDialog) {
-        if (isInInput) {
-          // Blur the input field when Escape is pressed
-          (target as HTMLInputElement | HTMLTextAreaElement).blur();
-        } else {
-          // Show exit confirmation if not in an input field
-          e.preventDefault();
-          setShowFocusModeExitConfirmation(true);
-        }
-      } else if (e.key === " " && !isInInput) {
-        // Only toggle play/pause if not in an input field
-        e.preventDefault();
-        if (isRunningRef.current) {
-          pause();
-          pausedTimeRef.current = totalSecondsRef.current;
-        } else if (pausedTimeRef.current !== null) {
-          restart(getExpiryTimestamp(pausedTimeRef.current), true);
-          pausedTimeRef.current = null;
-        } else {
-          // Start fresh
-          console.log("Starting fresh:", pausedTimeRef.current);
-          start();
-        }
-      }
-    };
+          if (!showAddTaskDialog) {
+            if (isInInput) {
+              // Blur the input field when Escape is pressed
+              (target as HTMLInputElement | HTMLTextAreaElement).blur();
+            } else {
+              // Show exit confirmation if not in an input field
+              setShowFocusModeExitConfirmation(true);
+            }
+          }
+        },
+        allowInInput: true, // Allow Escape in input fields for blur functionality
+        preventDefault: false, // Let Escape work naturally
+      },
+      {
+        key: " ",
+        handler: () => {
+          if (isRunningRef.current) {
+            pause();
+            pausedTimeRef.current = totalSecondsRef.current;
+          } else if (pausedTimeRef.current !== null) {
+            restart(getExpiryTimestamp(pausedTimeRef.current), true);
+            pausedTimeRef.current = null;
+          } else {
+            // Start fresh
+            start();
+          }
+        },
+        allowInInput: false,
+        description: "Play/pause timer",
+      },
+    ]);
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [
-    description,
-    timerMinutes,
-    showAddTaskDialog,
-    showFocusModeExitConfirmation,
-    pause,
-    restart,
-    start,
-  ]);
+  }, [showAddTaskDialog, showFocusModeExitConfirmation, pause, restart, start]);
 
   const playNotificationSound = () => {
     if (audioRef.current && audioLoaded) {

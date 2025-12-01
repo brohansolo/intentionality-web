@@ -15,6 +15,7 @@ import { Sidebar } from "@/components/sidebar";
 import { TaskDetailSidebar } from "@/components/task-detail-sidebar";
 import { TodayView } from "@/components/today-view";
 import { useTasks } from "@/hooks/use-tasks";
+import { createShortcutHandler } from "@/lib/keyboard-utils";
 import { Task } from "@/lib/types";
 
 const HomePage = () => {
@@ -36,25 +37,23 @@ const HomePage = () => {
   }, [tasks, selectedTask?.id]);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      const isInInput =
-        target.tagName === "INPUT" || target.tagName === "TEXTAREA";
+    // Don't register global shortcuts when in focus mode
+    if (focusTask) return;
 
-      // 's' key for scratchpad
-      if (e.key === "s" && !e.metaKey && !e.ctrlKey && !isInInput) {
-        e.preventDefault();
-        setScratchpadOpen(true);
-      }
-
-      // 'a' key for add task modal - works globally with Ctrl/Cmd modifier, or when not in input
-      if ((e.key === "a" || e.key === "A") && !focusTask) {
-        if (e.ctrlKey || e.metaKey || !isInInput) {
-          e.preventDefault();
-          setAddTaskModalOpen(true);
-        }
-      }
-    };
+    const handleKeyDown = createShortcutHandler([
+      {
+        key: "s",
+        handler: () => setScratchpadOpen(true),
+        allowInInput: false,
+        description: "Open scratchpad",
+      },
+      {
+        key: "a",
+        handler: () => setAddTaskModalOpen(true),
+        allowInInput: false,
+        description: "Open add task modal",
+      },
+    ]);
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useTasks } from "@/hooks/use-tasks";
+import { createShortcutHandler } from "@/lib/keyboard-utils";
 
 interface TagSelectorProps {
   currentTags: string[];
@@ -52,14 +53,19 @@ export const TagSelector = ({
 
   // Handle escape key to close dropdown
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && (showDropdown || showInput)) {
-        handleCancel();
-      }
-    };
+    if (!showDropdown && !showInput) return;
 
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
+    const handleKeyDown = createShortcutHandler([
+      {
+        key: "Escape",
+        handler: () => handleCancel(),
+        allowInInput: true,
+        description: "Close tag dropdown",
+      },
+    ]);
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [showDropdown, showInput]);
 
   // Get tag objects for current tags

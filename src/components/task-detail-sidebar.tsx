@@ -8,6 +8,7 @@ import { FocusMode } from "@/components/focus-mode";
 import { TagSelector } from "@/components/tag-selector";
 import { Button } from "@/components/ui/button";
 import { useTasks } from "@/hooks/use-tasks";
+import { createShortcutHandler } from "@/lib/keyboard-utils";
 import {
   calculateCompletionRate,
   calculateLongestStreak,
@@ -74,18 +75,21 @@ export const TaskDetailSidebar = ({
   };
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        handleClose();
-      }
-    };
+    if (!task) return;
 
-    if (task) {
-      document.addEventListener("keydown", handleKeyDown);
-      return () => {
-        document.removeEventListener("keydown", handleKeyDown);
-      };
-    }
+    const handleKeyDown = createShortcutHandler([
+      {
+        key: "Escape",
+        handler: () => handleClose(),
+        allowInInput: true, // Allow Escape to close even when in input fields
+        description: "Close task detail sidebar",
+      },
+    ]);
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [task, handleClose]);
 
   if (!task) return null;

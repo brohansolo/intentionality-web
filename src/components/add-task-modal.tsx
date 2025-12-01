@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useTasks } from "@/hooks/use-tasks";
+import { createShortcutHandler } from "@/lib/keyboard-utils";
 
 interface AddTaskModalProps {
   isOpen: boolean;
@@ -162,26 +163,28 @@ export const AddTaskModal = ({
   // Auto-focus Keep Editing button when confirmation dialog opens
   // and handle Escape key for closing the dialog
   useEffect(() => {
-    if (showExitConfirmation) {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          resetModal();
-        }
-      };
+    if (!showExitConfirmation) return;
 
-      document.addEventListener("keydown", handleKeyDown);
+    const handleKeyDown = createShortcutHandler([
+      {
+        key: "Escape",
+        handler: () => resetModal(),
+        allowInInput: true,
+        description: "Close add task modal",
+      },
+    ]);
 
-      if (keepEditingButtonRef.current) {
-        setTimeout(() => {
-          keepEditingButtonRef.current?.focus();
-        }, 50);
-      }
+    document.addEventListener("keydown", handleKeyDown);
 
-      return () => {
-        document.removeEventListener("keydown", handleKeyDown);
-      };
+    if (keepEditingButtonRef.current) {
+      setTimeout(() => {
+        keepEditingButtonRef.current?.focus();
+      }, 50);
     }
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [showExitConfirmation, resetModal]);
 
   if (!isOpen) return null;

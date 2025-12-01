@@ -77,42 +77,51 @@ export const TodayView = ({
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+    // Support both "move" (internal reorder) and "copy" (from add panel)
+    if (e.dataTransfer.effectAllowed === "copy") {
+      e.dataTransfer.dropEffect = "copy";
+    } else {
+      e.dataTransfer.dropEffect = "move";
+    }
   };
 
   const handleDrop = (e: React.DragEvent, dropIndex?: number) => {
     e.preventDefault();
     e.stopPropagation();
 
-    // Check if it's a task from the add panel
-    const taskIdFromPanel = e.dataTransfer.getData("taskId");
+    // Try custom type first, fallback to text/plain for Firefox compatibility
+    const taskIdFromPanel =
+      e.dataTransfer.getData("taskId") || e.dataTransfer.getData("text/plain");
+
+    // If this is an internal drag (reordering), handle it separately
+    if (draggedTaskId) {
+      // This is a reorder operation
+      const draggedIndex = todayTasks.findIndex(
+        (t) => t.taskId === draggedTaskId,
+      );
+      if (
+        draggedIndex === -1 ||
+        dropIndex === undefined ||
+        draggedIndex === dropIndex
+      ) {
+        setDraggedTaskId(null);
+        return;
+      }
+
+      const reordered = [...todayTasks];
+      const [draggedItem] = reordered.splice(draggedIndex, 1);
+      reordered.splice(dropIndex, 0, draggedItem);
+
+      reorderTodayTasks(reordered);
+      setDraggedTaskId(null);
+      return;
+    }
+
+    // Check if it's a task from the add panel (external drag)
     if (taskIdFromPanel && !isInToday(taskIdFromPanel)) {
       addToToday(taskIdFromPanel);
-      setDraggedTaskId(null);
       return;
     }
-
-    // Otherwise, it's a reorder operation
-    if (!draggedTaskId) return;
-
-    const draggedIndex = todayTasks.findIndex(
-      (t) => t.taskId === draggedTaskId,
-    );
-    if (
-      draggedIndex === -1 ||
-      dropIndex === undefined ||
-      draggedIndex === dropIndex
-    ) {
-      setDraggedTaskId(null);
-      return;
-    }
-
-    const reordered = [...todayTasks];
-    const [draggedItem] = reordered.splice(draggedIndex, 1);
-    reordered.splice(dropIndex, 0, draggedItem);
-
-    reorderTodayTasks(reordered);
-    setDraggedTaskId(null);
   };
 
   const handleDragEnd = () => {

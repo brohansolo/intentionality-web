@@ -5,7 +5,6 @@ import { useState } from "react";
 
 import { TaskItem } from "@/components/task-item";
 import { Button } from "@/components/ui/button";
-import { useKeyboard } from "@/hooks/use-keyboard";
 import { useTasks } from "@/hooks/use-tasks";
 import { Task } from "@/lib/types";
 
@@ -31,10 +30,6 @@ export const NextStepsView = ({
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [selectedProject, setSelectedProject] = useState("");
-
-  useKeyboard({
-    onCreateTask: () => setIsAddingTask(true),
-  });
 
   // Get incomplete daily tasks
   const incompleteDailyTasks = getDailyTasks().filter(
