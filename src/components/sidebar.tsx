@@ -34,6 +34,8 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
     addTag,
     updateTag,
     deleteTag,
+    addToToday,
+    isInToday,
   } = useTasks();
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -41,6 +43,7 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
   const [editingProject, setEditingProject] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [dragOverProject, setDragOverProject] = useState<string | null>(null);
+  const [dragOverToday, setDragOverToday] = useState(false);
   const [dropIndicatorIndex, setDropIndicatorIndex] = useState<number | null>(
     null,
   );
@@ -183,6 +186,34 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
     setDropIndicatorIndex(null);
   };
 
+  const handleTodayDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Check if this is a task drag (not a project drag)
+    const isTaskDrag = e.dataTransfer.types.some(
+      (type) => type.toLowerCase().includes("taskid") || type === "text/plain",
+    );
+    if (isTaskDrag && !draggedProject) {
+      e.dataTransfer.dropEffect = "move";
+      setDragOverToday(true);
+    }
+  };
+
+  const handleTodayDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const taskId = e.dataTransfer.getData("taskId");
+    if (taskId && !isInToday(taskId)) {
+      addToToday(taskId);
+      onViewChange("today"); // Optionally switch to Today view
+    }
+    setDragOverToday(false);
+  };
+
+  const handleTodayDragLeave = () => {
+    setDragOverToday(false);
+  };
+
   return (
     <div
       className="bg-muted/30 sticky top-0 h-screen overflow-y-auto"
@@ -205,9 +236,13 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
       >
         <button
           onClick={() => onViewChange("today")}
+          onDragOver={handleTodayDragOver}
+          onDrop={handleTodayDrop}
+          onDragLeave={handleTodayDragLeave}
           className={cn(
             "hover:bg-muted w-full cursor-pointer rounded-md p-2 text-left transition-colors",
             currentView === "today" && "bg-muted font-medium",
+            dragOverToday && "bg-primary/10 ring-primary ring-2",
           )}
         >
           Today

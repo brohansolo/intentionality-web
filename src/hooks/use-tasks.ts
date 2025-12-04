@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 
 import { env } from "@/env.mjs";
 import { RemoteStorageAdapter } from "@/lib/sync/remote-storage-adapter";
@@ -70,6 +71,8 @@ export const useTasks = () => {
   const taskTags = useAppSelector((state) => state.taskTags.items);
   const projectTags = useAppSelector((state) => state.projectTags.items);
 
+  console.log("[useTasks] Hook executed, tasks.length:", tasks.length);
+
   // Track if THIS hook instance has initialized
   const hasInitializedRef = useRef(false);
 
@@ -99,35 +102,12 @@ export const useTasks = () => {
 
     hasInitializedRef.current = true;
 
-    // If already globally initialized, just load from localStorage
+    // If already globally initialized, don't reload from storage
+    // Redux already has the current state
     if (hasGloballyInitialized) {
       console.log(
-        "[useTasks] Already globally initialized, loading from localStorage only",
+        "[useTasks] Already globally initialized, using existing Redux state",
       );
-      const loadLocalData = async () => {
-        const [
-          loadedTasks,
-          loadedProjects,
-          loadedTodayTasks,
-          loadedTags,
-          loadedTaskTags,
-          loadedProjectTags,
-        ] = await Promise.all([
-          getStorageManager().getTasks(),
-          getStorageManager().getProjects(),
-          getStorageManager().getTodayTasks(),
-          getStorageManager().getTags(),
-          getStorageManager().getTaskTags(),
-          getStorageManager().getProjectTags(),
-        ]);
-        dispatch(setTasks(loadedTasks));
-        dispatch(setProjects(loadedProjects));
-        dispatch(setTodayTasks(loadedTodayTasks));
-        dispatch(setTags(loadedTags));
-        dispatch(setTaskTags(loadedTaskTags));
-        dispatch(setProjectTags(loadedProjectTags));
-      };
-      loadLocalData();
       return;
     }
 
@@ -244,10 +224,14 @@ export const useTasks = () => {
       timePeriod,
       createdAt: new Date().toISOString(),
     };
-    console.log("Adding task:", newTask);
-    console.log("Current tasks:", tasks);
-    dispatch(addTaskAction(newTask));
+    console.log("[useTasks.addTask] Adding task:", newTask);
+    console.log("[useTasks.addTask] Current tasks count:", tasks.length);
+    flushSync(() => {
+      dispatch(addTaskAction(newTask));
+    });
+    console.log("[useTasks.addTask] Dispatched to Redux (flushed)");
     await getStorageManager().addTask(newTask);
+    console.log("[useTasks.addTask] Saved to storage");
 
     // Add tag relationships if provided
     if (tagIds && tagIds.length > 0) {

@@ -51,11 +51,21 @@ export const ProjectView = ({
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
 
   const project = projects.find((p) => p.id === projectId);
+
   const allProjectTasks = getProjectTasks(projectId).filter(
     (task) => !task.parentTaskId,
   );
+
   const projectTasks = allProjectTasks.filter((task) => !task.completed);
+
   const completedTasks = allProjectTasks.filter((task) => task.completed);
+
+  console.log("[ProjectView] Rendering:", {
+    projectId,
+    totalTasks: allProjectTasks.length,
+    activeTasks: projectTasks.length,
+    completedTasks: completedTasks.length,
+  });
 
   if (!project) {
     return (
@@ -69,6 +79,7 @@ export const ProjectView = ({
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     setDraggedTask(taskId);
+    e.dataTransfer.setData("taskId", taskId);
     e.dataTransfer.effectAllowed = "move";
   };
 
