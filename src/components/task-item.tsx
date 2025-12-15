@@ -1,13 +1,19 @@
 "use client";
 
-import { Calendar, Trash2 } from "lucide-react";
+import { Calendar, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useTasks } from "@/hooks/use-tasks";
-import { Tag, Task, TaskTag } from "@/lib/types";
+import { Tag, Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface TaskItemProps {
@@ -19,6 +25,7 @@ interface TaskItemProps {
   onDoubleClick?: (task: Task) => void;
   isDaily?: boolean;
   hideDelete?: boolean;
+  showProjectName?: boolean;
 }
 
 const formatTime = (minutes: number) => {
@@ -39,8 +46,9 @@ export const TaskItem = ({
   onDoubleClick,
   isDaily = false,
   hideDelete = false,
+  showProjectName = false,
 }: TaskItemProps) => {
-  const { tags, getTaskTagIds } = useTasks();
+  const { tags, getTaskTagIds, projects } = useTasks();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -56,6 +64,12 @@ export const TaskItem = ({
     if (!task) return [];
     const tts = getTaskTagIds(task.id);
     return tags.filter((tag) => tts.includes(tag.id));
+  };
+
+  const getProjectName = (): string | undefined => {
+    if (!task.projectId) return undefined;
+    const project = projects.find((p) => p.id === task.projectId);
+    return project?.name;
   };
 
   const playSound = () => {
@@ -136,7 +150,6 @@ export const TaskItem = ({
       className={cn(
         "hover:bg-muted/50 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors",
         displayCompleted && "opacity-60",
-        isDaily && "border-blue-200 bg-blue-50/50",
       )}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
@@ -162,6 +175,11 @@ export const TaskItem = ({
       />
 
       <div className="min-w-0 flex-1">
+        {showProjectName && getProjectName() && (
+          <div className="text-muted-foreground mb-1 text-xs">
+            {getProjectName()}
+          </div>
+        )}
         {isEditingTitle ? (
           <form
             onSubmit={(e) => {
@@ -205,7 +223,6 @@ export const TaskItem = ({
             {task.title}
           </div>
         )}
-
         <div className="mt-1 flex flex-wrap items-center gap-2">
           {task.dueDate && (
             <div
@@ -222,12 +239,6 @@ export const TaskItem = ({
           {task.timePeriod && (
             <div className="text-muted-foreground bg-muted rounded px-2 py-1 text-xs">
               {formatTime(task.timePeriod)}
-            </div>
-          )}
-
-          {task.isDaily && (
-            <div className="rounded bg-blue-100 px-2 py-1 text-xs text-blue-600">
-              Daily
             </div>
           )}
 
@@ -248,7 +259,6 @@ export const TaskItem = ({
               ),
           )}
         </div>
-
         {task.description && (
           <div className="text-muted-foreground prose prose-sm dark:prose-invert mt-1 line-clamp-2 max-w-none text-sm">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -258,6 +268,18 @@ export const TaskItem = ({
         )}
       </div>
 
+      {task.isDaily && (
+        <TooltipProvider delayDuration={100}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <RefreshCw className="h-3 w-3 cursor-default text-blue-400" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>Daily Task</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
       {!hideDelete && (
         <Button
           variant="ghost"

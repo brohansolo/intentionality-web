@@ -210,6 +210,7 @@ export const TodayView = ({
                       onClick={onTaskClick}
                       onDoubleClick={onTaskDoubleClick}
                       hideDelete={true}
+                      showProjectName={true}
                     />
                   </div>
 

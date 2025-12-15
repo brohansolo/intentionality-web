@@ -1,7 +1,7 @@
 "use client";
 
-import { Calendar, Clock, Flame, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Calendar, Clock, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 import { CompletionCalendar } from "@/components/completion-calendar";
 import { FocusMode } from "@/components/focus-mode";
@@ -9,11 +9,6 @@ import { TagSelector } from "@/components/tag-selector";
 import { Button } from "@/components/ui/button";
 import { useTasks } from "@/hooks/use-tasks";
 import { createShortcutHandler } from "@/lib/keyboard-utils";
-import {
-  calculateCompletionRate,
-  calculateLongestStreak,
-  calculateStreak,
-} from "@/lib/streak";
 import { Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +32,7 @@ export const TaskDetailSidebar = ({
     getTaskTagIds: getTaskTags,
     addTagToTask,
     removeTagFromTask,
+    deleteTask,
   } = useTasks();
   const [title, setTitle] = useState(task?.title || "");
   const [description, setDescription] = useState(task?.description || "");
@@ -58,7 +54,18 @@ export const TaskDetailSidebar = ({
     }
   }, [task]);
 
-  const handleClose = () => {
+  // Auto-resize textarea on mount and when title changes
+  useEffect(() => {
+    const textarea = document.getElementById(
+      "task-title",
+    ) as HTMLTextAreaElement;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = textarea.scrollHeight + "px";
+    }
+  }, [title, task]);
+
+  const handleClose = useCallback(() => {
     // Save any pending changes before closing
     if (task) {
       const updates: Partial<Task> = {
@@ -72,7 +79,17 @@ export const TaskDetailSidebar = ({
       onUpdate(task.id, updates);
     }
     onClose();
-  };
+  }, [
+    task,
+    title,
+    description,
+    dueDate,
+    timePeriod,
+    isDaily,
+    projectId,
+    onUpdate,
+    onClose,
+  ]);
 
   useEffect(() => {
     if (!task) return;
@@ -115,6 +132,7 @@ export const TaskDetailSidebar = ({
       projectId: projectId || undefined,
     };
     onUpdate(task.id, updates);
+    onClose();
   };
 
   const formatTime = (minutes: number) => {
@@ -155,6 +173,29 @@ export const TaskDetailSidebar = ({
     onUpdate(task.id, { completionHistory: updatedHistory });
   };
 
+  const handleClearProgress = () => {
+    if (!task) return;
+    if (
+      window.confirm(
+        "Are you sure you want to clear all completion history? This cannot be undone.",
+      )
+    ) {
+      onUpdate(task.id, { completionHistory: {} });
+    }
+  };
+
+  const handleDelete = () => {
+    if (!task) return;
+    if (
+      window.confirm(
+        "Are you sure you want to delete this task? This cannot be undone.",
+      )
+    ) {
+      deleteTask(task.id);
+      onClose();
+    }
+  };
+
   return (
     <>
       {/* Overlay */}
@@ -175,132 +216,44 @@ export const TaskDetailSidebar = ({
       <div className="bg-background fixed top-0 right-0 z-50 h-full w-96 overflow-y-auto border-l shadow-lg">
         <div className="p-6">
           {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Task Details</h2>
-            <Button variant="ghost" size="icon" onClick={handleClose}>
+          <div className="mb-1 flex items-start justify-between">
+            <textarea
+              id="task-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="text-med flex-1 resize-none overflow-hidden rounded-sm font-semibold hover:cursor-text"
+              rows={1}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = "auto";
+                target.style.height = target.scrollHeight + "px";
+              }}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClose}
+              className="flex-shrink-0"
+            >
               <X className="h-4 w-4" />
             </Button>
           </div>
-
-          {/* Task Title */}
-          <div className="mb-6">
-            <label
-              htmlFor="task-title"
-              className="mb-2 block text-sm font-medium"
-            >
-              Title
-            </label>
-            <input
-              id="task-title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-md border p-3 text-lg font-medium"
-            />
+          <div className="text-muted-foreground mb-2 text-sm font-medium">
+            <span className="font-sm">Created: </span>
+            {new Date(task.createdAt).toLocaleDateString()}
           </div>
-          {/* Due Date - only for non-daily tasks */}
-          {!task.isDaily && (
-            <div className="mb-6">
-              <label
-                htmlFor="task-due-date"
-                className="mb-2 block flex items-center gap-2 text-sm font-medium"
-              >
-                <Calendar className="h-4 w-4" />
-                Due Date
-              </label>
-              <input
-                id="task-due-date"
-                type="date"
-                value={
-                  dueDate
-                    ? typeof dueDate === "string"
-                      ? dueDate.split("T")[0]
-                      : ""
-                    : ""
-                }
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full rounded-md border p-3"
-              />
-              {dueDate && (
-                <button
-                  onClick={() => setDueDate("")}
-                  className="text-muted-foreground hover:text-foreground mt-1 text-xs"
-                >
-                  Remove due date
-                </button>
-              )}
-            </div>
-          )}
 
-          {/* Daily Task Toggle - only for non-daily tasks */}
-          {!task.isDaily && (
-            <div className="mb-6">
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={isDaily}
-                  onChange={(e) => {
-                    setIsDaily(e.target.checked);
-                    onUpdate(task.id, { isDaily: e.target.checked });
-                  }}
-                  className="rounded"
-                />
-                <span className="text-sm font-medium">
-                  Daily recurring task
-                </span>
-              </label>
-            </div>
-          )}
-
-          {/* Streak and Calendar for Daily Tasks */}
-          {task.isDaily && (
-            <div className="mb-6 space-y-4 rounded-lg border p-4">
-              {/* Streak Stats */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Flame className="h-5 w-5 text-orange-500" />
-                  <div className="text-l font-medium">
-                    {calculateStreak(task)}
-                  </div>
-                  <div className="text-m font-medium">Day Streak</div>
-                </div>
-              </div>
-
-              {/* Completion Calendar */}
-              <CompletionCalendar task={task} onToggleDate={handleToggleDate} />
-            </div>
-          )}
-
-          {/* Time Period */}
-          <div className="mb-6">
-            <label
-              htmlFor="task-time-period"
-              className="mb-2 block flex items-center gap-2 text-sm font-medium"
-            >
-              <Clock className="h-4 w-4" />
-              Time Estimate
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                id="task-time-period"
-                type="number"
-                value={timePeriod}
-                onChange={(e) => setTimePeriod(e.target.value)}
-                placeholder="0"
-                min="0"
-                className="flex-1 rounded-md border p-3"
-              />
-              <span className="text-muted-foreground text-sm">minutes</span>
-            </div>
-            {task.timePeriod && (
-              <div className="text-muted-foreground mt-1 text-xs">
-                Estimated time: {formatTime(task.timePeriod)}
-              </div>
-            )}
+          {/* Tags */}
+          <div className="mb-3">
+            <TagSelector
+              currentTags={getTaskTags(task.id)}
+              onAddTag={handleAddTag}
+              onRemoveTag={handleRemoveTag}
+            />
           </div>
 
           {/* Project Assignment */}
-          <div className="mb-6">
+          <div className="mb-4">
             <label
               htmlFor="task-project"
               className="mb-2 block text-sm font-medium"
@@ -322,6 +275,109 @@ export const TaskDetailSidebar = ({
             </select>
           </div>
 
+          <div className="mb-6">
+            <div className="mb-3">
+              {/* Due Date - only for non-daily tasks */}
+              {!task.isDaily && (
+                <div>
+                  <label
+                    htmlFor="task-due-date"
+                    className="mb-2 block flex items-center gap-2 text-sm font-medium"
+                  >
+                    <Calendar className="h-4 w-4" />
+                    Due Date
+                  </label>
+                  <input
+                    id="task-due-date"
+                    type="date"
+                    value={
+                      dueDate
+                        ? typeof dueDate === "string"
+                          ? dueDate.split("T")[0]
+                          : ""
+                        : ""
+                    }
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full rounded-md border p-3"
+                  />
+                  {dueDate && (
+                    <button
+                      onClick={() => setDueDate("")}
+                      className="text-muted-foreground hover:text-foreground mt-1 text-xs"
+                    >
+                      Remove due date
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Streak and Calendar for Daily Tasks */}
+              {task.isDaily && (
+                <div className="rounded-lg border p-4">
+                  <CompletionCalendar
+                    task={task}
+                    onToggleDate={handleToggleDate}
+                    onClearProgress={handleClearProgress}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Daily Task Toggle */}
+            <div>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={isDaily}
+                  onChange={(e) => {
+                    setIsDaily(e.target.checked);
+                    // Update task but preserve completion history
+                    onUpdate(task.id, {
+                      isDaily: e.target.checked,
+                      completionHistory: task.completionHistory || {},
+                    });
+                  }}
+                  className="rounded"
+                />
+                <span className="text-sm font-medium">Daily task</span>
+              </label>
+              {task.completionHistory &&
+                Object.keys(task.completionHistory).length > 0 && (
+                  <p className="text-muted-foreground mt-1 ml-7 text-xs">
+                    Completion history will be preserved
+                  </p>
+                )}
+            </div>
+          </div>
+
+          {/* Time Period */}
+          <div className="mb-3">
+            <label
+              htmlFor="task-time-period"
+              className="mb-2 block flex items-center gap-2 text-sm font-medium"
+            >
+              <Clock className="h-4 w-4" />
+              Estimate
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="task-time-period"
+                type="number"
+                value={timePeriod}
+                onChange={(e) => setTimePeriod(e.target.value)}
+                placeholder="0"
+                min="0"
+                className="flex-1 rounded-md border p-3"
+              />
+              <span className="text-muted-foreground text-sm">minutes</span>
+            </div>
+            {task.timePeriod && (
+              <div className="text-muted-foreground mt-1 text-xs">
+                Estimated time: {formatTime(task.timePeriod)}
+              </div>
+            )}
+          </div>
+
           {/* Description */}
           <div className="mb-6">
             <label
@@ -336,16 +392,6 @@ export const TaskDetailSidebar = ({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Add a description..."
               className="h-32 w-full resize-none rounded-md border p-3"
-            />
-          </div>
-
-          {/* Tags */}
-          <div className="mb-6">
-            <span className="mb-2 block text-sm font-medium">Tags</span>
-            <TagSelector
-              currentTags={getTaskTags(task.id)}
-              onAddTag={handleAddTag}
-              onRemoveTag={handleRemoveTag}
             />
           </div>
 
@@ -366,14 +412,14 @@ export const TaskDetailSidebar = ({
                   addToToday(task.id);
                 }
               }}
-              variant={isInToday(task.id) ? "outline" : "default"}
-              className="w-full hover:cursor-pointer"
+              // variant={isInToday(task.id) ? "outline" : "default"}
+              className="w-full bg-indigo-500 hover:cursor-pointer"
             >
               {isInToday(task.id) ? "Remove from Today" : "Add to Today"}
             </Button>
             <Button
               onClick={handleSave}
-              className="w-full hover:cursor-pointer"
+              className="w-full bg-emerald-500 hover:cursor-pointer"
             >
               Save Changes
             </Button>
@@ -382,15 +428,9 @@ export const TaskDetailSidebar = ({
           {/* Task Info */}
           <div className="text-muted-foreground space-y-3 border-t pt-4 text-sm">
             <div className="grid grid-cols-2 gap-2">
-              <div>
-                <span className="font-medium">Created:</span>
-                <br />
-                {new Date(task.createdAt).toLocaleDateString()}
-              </div>
               {task.lastCompleted && (
                 <div>
-                  <span className="font-medium">Last completed:</span>
-                  <br />
+                  <span className="font-medium">Last completed: </span>{" "}
                   {new Date(task.lastCompleted).toLocaleDateString()}
                 </div>
               )}
@@ -440,6 +480,18 @@ export const TaskDetailSidebar = ({
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Delete Task Button */}
+          <div className="mt-4 border-t pt-4">
+            <Button
+              onClick={handleDelete}
+              variant="destructive"
+              className="w-full hover:cursor-pointer"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Task
+            </Button>
           </div>
         </div>
       </div>

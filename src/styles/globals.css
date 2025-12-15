@@ -224,6 +224,17 @@
     outline-color: oklch(0.556 0 0);
     border-color: oklch(1 0 0 / 15%);
   }
+
+  /* Faster tooltip delay for title attributes */
+  [title] {
+    position: relative;
+  }
+
+  @supports (tooltip-delay: 0ms) {
+    [title] {
+      tooltip-delay: 100ms;
+    }
+  }
 }
 
 @utility container {

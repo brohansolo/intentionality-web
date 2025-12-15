@@ -42,7 +42,11 @@ export const DailyTasksView = ({
     e.dataTransfer.dropEffect = "move";
   };
 
-  const handleDrop = (e: React.DragEvent, dropIndex: number, taskList: Task[]) => {
+  const handleDrop = (
+    e: React.DragEvent,
+    dropIndex: number,
+    taskList: Task[],
+  ) => {
     e.preventDefault();
     if (!draggedTask) return;
 
@@ -72,7 +76,7 @@ export const DailyTasksView = ({
           <div>
             <h1 className="text-2xl font-bold">Daily Tasks</h1>
             <p className="text-muted-foreground">
-              Tasks that need to be completed daily
+              Tasks that recur daily or otherwise.
             </p>
           </div>
         </div>

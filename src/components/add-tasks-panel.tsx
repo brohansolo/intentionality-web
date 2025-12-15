@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsLeft, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -16,12 +16,14 @@ interface DraggableTaskItemProps {
   task: Task;
   isInToday: boolean;
   onDragStart: (e: React.DragEvent, taskId: string) => void;
+  onAddToToday: (taskId: string) => void;
 }
 
 const DraggableTaskItem = ({
   task,
   isInToday,
   onDragStart,
+  onAddToToday,
 }: DraggableTaskItemProps) => {
   const inToday = isInToday;
   const today = new Date().toISOString().split("T")[0];
@@ -30,31 +32,58 @@ const DraggableTaskItem = ({
   const isDisabled = inToday || isCompletedToday;
 
   return (
-    <div
-      draggable={!isDisabled}
-      onDragStart={(e) => onDragStart(e, task.id)}
-      className={cn(
-        "rounded-md border p-2 text-sm",
-        isDisabled
-          ? "bg-muted/50 border-muted text-muted-foreground cursor-not-allowed opacity-50"
-          : "hover:bg-muted/50 cursor-grab transition-colors active:cursor-grabbing",
+    <div className="ml-2 flex items-center">
+      {!isDisabled && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 flex-shrink-0"
+          onClick={() => onAddToToday(task.id)}
+          title="Add to Today"
+        >
+          <ChevronsLeft className="text-muted-foreground h-4 w-4" />
+        </Button>
       )}
-    >
-      <div className={cn("font-medium", isDisabled && "line-through")}>
-        {task.title}
-      </div>
-      {task.description && (
-        <div className="text-muted-foreground mt-1 truncate text-xs">
-          {task.description}
+      <div
+        draggable={!isDisabled}
+        onDragStart={(e) => onDragStart(e, task.id)}
+        onClick={!isDisabled ? () => onAddToToday(task.id) : undefined}
+        onKeyDown={
+          !isDisabled
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onAddToToday(task.id);
+                }
+              }
+            : undefined
+        }
+        role={!isDisabled ? "button" : undefined}
+        tabIndex={!isDisabled ? 0 : undefined}
+        className={cn(
+          "flex-1 rounded-md p-1 text-sm",
+          isDisabled
+            ? "bg-muted/100 border-muted text-muted-foreground cursor-not-allowed opacity-50"
+            : "hover:bg-muted/100 cursor-pointer transition-colors",
+        )}
+      >
+        <div className={cn("font-medium", isDisabled && "line-through")}>
+          {task.title}
         </div>
-      )}
+      </div>
     </div>
   );
 };
 
 export const AddTasksPanel = ({ onClose }: AddTasksPanelProps) => {
-  const { projects, getInboxTasks, getProjectTasks, getDailyTasks, isInToday } =
-    useTasks();
+  const {
+    projects,
+    getInboxTasks,
+    getProjectTasks,
+    getDailyTasks,
+    isInToday,
+    addToToday,
+  } = useTasks();
 
   // Initialize with all sections collapsed (inbox, daily-tasks, and all project IDs)
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
@@ -102,6 +131,10 @@ export const AddTasksPanel = ({ onClose }: AddTasksPanelProps) => {
       newCollapsed.add(sectionId);
     }
     setCollapsedSections(newCollapsed);
+  };
+
+  const handleAddToToday = async (taskId: string) => {
+    await addToToday(taskId);
   };
 
   useEffect(() => {
@@ -152,6 +185,7 @@ export const AddTasksPanel = ({ onClose }: AddTasksPanelProps) => {
                     task={task}
                     isInToday={isInToday(task.id)}
                     onDragStart={handleDragStart}
+                    onAddToToday={handleAddToToday}
                   />
                 ))}
               </div>
@@ -186,6 +220,7 @@ export const AddTasksPanel = ({ onClose }: AddTasksPanelProps) => {
                     task={task}
                     isInToday={isInToday(task.id)}
                     onDragStart={handleDragStart}
+                    onAddToToday={handleAddToToday}
                   />
                 ))}
               </div>
@@ -232,6 +267,7 @@ export const AddTasksPanel = ({ onClose }: AddTasksPanelProps) => {
                         task={task}
                         isInToday={isInToday(task.id)}
                         onDragStart={handleDragStart}
+                        onAddToToday={handleAddToToday}
                       />
                     ))}
                   </div>

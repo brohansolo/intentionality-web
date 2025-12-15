@@ -1,23 +1,30 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Flame, Trash2 } from "lucide-react";
 import { useState } from "react";
 
+import { calculateStreak } from "@/lib/streak";
 import { Task } from "@/lib/types";
 
 interface CompletionCalendarProps {
   task: Task;
   onToggleDate?: (date: string, completed: boolean) => void;
+  onClearProgress?: () => void;
 }
 
 export function CompletionCalendar({
   task,
   onToggleDate,
+  onClearProgress,
 }: CompletionCalendarProps) {
   const [offset, setOffset] = useState(0);
 
   if (!task.isDaily) return null;
   const completionHistory = task.completionHistory || {};
+
+  const getTotalCompletions = () => {
+    return Object.keys(completionHistory).length;
+  };
 
   // Generate 7 days ending at (today - offset)
   const endDate = new Date();
@@ -63,8 +70,29 @@ export function CompletionCalendar({
   const canGoNext = offset > 0;
 
   return (
-    <div className="space-y-2">
-      <div className="mb-2 pb-2 text-sm font-medium">Completion History</div>
+    <div className="space-y-4">
+      {/* Header with streak, total, and clear button */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Flame className="h-5 w-5 text-orange-500" />
+            <div className="text-l font-medium">{calculateStreak(task)}</div>
+            <div className="text-m font-medium">Day Streak</div>
+          </div>
+          <div className="text-muted-foreground text-sm">
+            • {getTotalCompletions()} total
+          </div>
+        </div>
+        {onClearProgress && (
+          <button
+            onClick={onClearProgress}
+            className="text-muted-foreground hover:text-destructive transition-colors"
+            title="Clear all progress"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
+      </div>
 
       <div className="flex items-center gap-3">
         {/* Left arrow */}
